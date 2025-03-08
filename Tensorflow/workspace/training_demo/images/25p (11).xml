@@ -1,4 +1,4 @@
-<annotation>
+<annotation verified="yes">
 	<folder>24_mm_25_partilces</folder>
 	<filename>25p (11).jpg</filename>
 	<path>C:\Users\Jas\Desktop\Projet_PSC\24_mm_25_particles\24_mm_25_partilces\25p (11).jpg</path>
@@ -297,6 +297,18 @@
 			<ymin>1765</ymin>
 			<xmax>1699</xmax>
 			<ymax>1880</ymax>
+		</bndbox>
+	</object>
+	<object>
+		<name>pallet</name>
+		<pose>Unspecified</pose>
+		<truncated>0</truncated>
+		<difficult>0</difficult>
+		<bndbox>
+			<xmin>2121</xmin>
+			<ymin>244</ymin>
+			<xmax>2236</xmax>
+			<ymax>364</ymax>
 		</bndbox>
 	</object>
 </annotation>
