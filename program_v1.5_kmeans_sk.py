@@ -4,7 +4,7 @@ from tqdm import tqdm
 import time as t
 import glob
 import os
-import cv2
+import moviepy
 import numpy as np
 import matplotlib.pyplot as plt
 #import matplotlib.animation as animation
@@ -157,10 +157,16 @@ def image_compare(images, n):
         vectortable.append(vectors)
 
 
-def images_to_video(image_folder,dirname, fps=25):
-    images = [img for img in os.listdir(image_folder) if img.endswith(".jpg") or img.endswith(".png")]
-    images.sort() 
-    output_video_path=f'{dirname}/*'
+
+def images_to_video(image_folder,dirname,vidname='animation', fps=25):
+    files = [filepath for filepath in glob.glob(image_folder)]
+    image_files=[]
+    files={Path(filepath).stem: filepath for filepath in tqdm(glob.glob(image_folder), desc='importing frames')}
+    for i, filename in tqdm(enumerate(glob.glob(path)), desc="sorting frames"):
+        name=f'fig{i}'
+        image_files.append(files[name])
+    #images.sort() 
+    output_video_path=f'{dirname}'
     try:
         os.mkdir(output_video_path)
         print(f"Directory '{output_video_path}' created successfully.")
@@ -171,21 +177,12 @@ def images_to_video(image_folder,dirname, fps=25):
     if len(images) == 0:
         print("Aucune image trouvée dans le dossier.")
         return
-
-    first_image_path = os.path.join(image_folder, images[0])
-    first_image = cv2.imread(first_image_path)
-    height, width, layers = first_image.shape
-
-    fourcc = cv2.VideoWriter_fourcc(*'mp4v')  
-    out = cv2.VideoWriter(output_video_path, fourcc, fps, (width, height))
-
-    for image in images:
-        image_path = os.path.join(image_folder, image)
-        img = cv2.imread(image_path)
-        out.write(img) 
-
-    out.release()
-    print(f"Vidéo créée avec succès : {output_video_path}")
+    os.remove(f'{output_video_path}/{vidname}.mp4')
+    clip = moviepy.video.io.ImageSequenceClip.ImageSequenceClip(image_files, fps=fps)
+    clip.write_videofile(f'{vidname}.mp4')
+    os.rename(f'{vidname}.mp4',f'{output_video_path}/{vidname}.mp4' )
+    print(f"Vidéo créée avec succès : {vidname}")
+    return output_video_path
 
 
 
@@ -194,12 +191,9 @@ def images_to_video(image_folder,dirname, fps=25):
 
 
 
-
-
-
-path=("wetransfer_24_mm_25_particles_2025-03-14_1410/24_mm_25_particles/24_mm_25_partilces/*")
+path=("24_mm_25_particles/24_mm_25_partilces/*")
 testpath=('Images/test/*')
-templatepath=("wetransfer_images_2025-03-14_1416/Images/template.jpg")
+templatepath=("Images/template.jpg")
 width, height=Image.open('Images/pallet.jpg').size
 scale=5
 start=t.monotonic()
