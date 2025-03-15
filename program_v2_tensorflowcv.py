@@ -68,6 +68,7 @@ def white_check(images, scale=30):
 #    scatter(coords_list, directory_name, scale=scale)
     return coords_list
 
+
 def scatter(coords_table, dirname='Frames', scale=30):
     coords_table=coords_table.copy()
     directory_name=dirname
@@ -172,6 +173,36 @@ def image_compare(images, n):
 
 
 
+def images_to_video(image_folder,dirname,vidname='animation', fps=25):
+    files = [filepath for filepath in glob.glob(image_folder)]
+    image_files=[]
+    files={Path(filepath).stem: filepath for filepath in tqdm(glob.glob(image_folder), desc='importing frames')}
+    for i, filename in tqdm(enumerate(glob.glob(path)), desc="sorting frames"):
+        name=f'fig{i}'
+        image_files.append(files[name])
+    #images.sort() 
+    output_video_path=f'{dirname}'
+    try:
+        os.mkdir(output_video_path)
+        print(f"Directory '{output_video_path}' created successfully.")
+    except FileExistsError:
+        print(f"Directory '{output_video_path}' already exists.")
+    except PermissionError:
+        print(f"Permission denied: Unable to create '{output_video_path}'.")
+    if len(images) == 0:
+        print("Aucune image trouvée dans le dossier.")
+        return
+    os.remove(f'{output_video_path}/{vidname}.mp4')
+    clip = moviepy.video.io.ImageSequenceClip.ImageSequenceClip(image_files, fps=fps)
+    clip.write_videofile(f'{vidname}.mp4')
+    os.rename(f'{vidname}.mp4',f'{output_video_path}/{vidname}.mp4' )
+    print(f"Vidéo créée avec succès : {vidname}")
+    return output_video_path
+
+
+
+
+
 
 
 
@@ -185,11 +216,17 @@ images=image_imports(path,templatepath, scale=scale)
 n=25
 #tables=image_compare(images, n)
 coordslist=white_check(images, scale=scale)
+#origins=cluster_find(coordslist, n)
+image_folder = "Imageplots/*" 
+output_video_path = "output_video"  
 origins=cluster_find(coordslist, n)
+image_folder = "Imageplots/*" 
+output_video_path = "output_video.mp4"  
+images_to_video(image_folder, output_video_path, fps=25)
 end=t.monotonic()
 #disttable, vecttable=tables
 #print(len(disttable), len(vecttable), end-start)
-scatterpath, plots= scatter(origins, scale=scale)
+#scatterpath, plots= scatter(origins, scale=scale)
 ##plt.show()
 ##plots=[scatter(centers)]
 ##plt.show()
