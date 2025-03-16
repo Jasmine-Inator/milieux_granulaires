@@ -19,14 +19,14 @@ from pathlib import Path
 import moviepy
 
 
-def image_imports(path, templatepath,anim=False, rescale=True, scale=30): #use / in path
+def image_imports(path, templatepath,anim=False, rescale=True, scale=30, start=1): #use / in path
     img_list=[]
     pathlist=[]
     scale=int(scale)
     template=Image.open(templatepath)
     files={Path(filepath).stem: filepath for filepath in glob.glob(path)}
     for i, filename in tqdm(enumerate(glob.glob(path)), desc="Importing images"):
-        j=i+1 
+        j=i+start 
         name=f'25p ({j})'
         im=Image.open(files[name]).convert('RGB')
         pathlist.append(files[name])
@@ -185,12 +185,7 @@ def image_compare(images, modelpath, Threshold=0.5):
 
 
 def images_to_video(image_folder,dirname,vidname='animation', fps=25):
-    files = [filepath for filepath in glob.glob(image_folder)]
-    image_files=[]
-    files={Path(filepath).stem: filepath for filepath in tqdm(glob.glob(image_folder), desc='importing frames')}
-    for i, filename in tqdm(enumerate(glob.glob(path)), desc="sorting frames"):
-        name=f'fig{i}'
-        image_files.append(files[name])
+    image_files=image_imports(image_folder, None, anim=True, start=0, rescale=False)
     #images.sort() 
     output_video_path=f'{dirname}'
     try:
