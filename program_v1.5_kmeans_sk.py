@@ -150,12 +150,15 @@ def image_compare(images, n):
             cl1=centers
             cl2=centers_lists[i+1]
         except IndexError:
-            return disttable, vectortable
+            return disttable, vectortable, speeds, kinetic_energies
         distances, indexes=image_compare_dist(cl1,cl2)
         disttable.append(distances)
         vectors=image_compare_vect(cl1,cl2,indexes)
         vectortable.append(vectors)
-
+        vectors = image_compare_vect(cl1, cl2, indexes)
+        speeds = compute_speed(vectors, delta_t=1)  
+        mass = 1.0
+        kinetic_energies = compute_kinetic_energy(speeds, mass)
 
 
 def images_to_video(image_folder,dirname,vidname='animation', fps=25):
@@ -183,6 +186,16 @@ def images_to_video(image_folder,dirname,vidname='animation', fps=25):
     os.rename(f'{vidname}.mp4',f'{output_video_path}/{vidname}.mp4' )
     print(f"Vidéo créée avec succès : {vidname}")
     return output_video_path
+
+
+def compute_speed(vectors, delta_t):
+    speeds = np.linalg.norm(vectors, axis=1) / delta_t
+    return speeds
+
+
+def compute_kinetic_energy(speeds, mass):
+    energies = 0.5 * mass * speeds**2
+    return energies
 
 
 

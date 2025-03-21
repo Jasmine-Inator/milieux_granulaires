@@ -38,6 +38,7 @@ def image_imports(path, templatepath,anim=False, rescale=True, scale=30, start=1
         img_list.append(im)
     return img_list, pathlist
 
+
 def crop(image,template, yoffset=25, xoffset=-15):
     width, height=template.size
     modwidth, modheight=image.size
@@ -61,6 +62,7 @@ def pallet_check(images, modelpath):
         result_list.append(result)
     return result_list, im_height, im_width
 
+
 def palletcoords(result_list, im_height, im_width, Threshold = 0.5):
     result_list=result_list.copy()
     Threshold = Threshold
@@ -79,7 +81,6 @@ def palletcoords(result_list, im_height, im_width, Threshold = 0.5):
                 coordslist.append(center)
         coords_table.append(coordslist)
     return coords_table
-        
 
 
 def scatter(coords_table, dirname='Frames', scale=30):
@@ -111,6 +112,7 @@ def scatter(coords_table, dirname='Frames', scale=30):
     path=f'{directory_name}/*'
     return path, plots
 
+
 def plotvector(origins, vectors):
     vectorcoords=flatten(vectors)
     origincoords=flatten(origins)
@@ -124,9 +126,9 @@ def plotvector(origins, vectors):
     vect_plot = plt.quiver(ox, oy, vx, vy)
     return vect_plot
 
+
 def flatten(_list_):
     return np.array(list(it.chain.from_iterable(_list_)))
-
 
 
 def cluster_find(coords_table, n):#need to make more accurate
@@ -138,6 +140,7 @@ def cluster_find(coords_table, n):#need to make more accurate
         cluster_list.append(centroids)
     print('done looking for clusters')
     return cluster_list
+
 
 def image_compare_dist(center_list_1, center_list_2, neighbor_indexes=True, scale=11):
     indexes=[]
@@ -180,8 +183,11 @@ def image_compare(images, modelpath, Threshold=0.5):
         distances, indexes=image_compare_dist(cl1,cl2)
         disttable.append(distances)
         vectors=image_compare_vect(cl1,cl2,indexes)
-        vectortable.append(vectors)
-
+        vectortable.append(vectors)   
+        vectors = image_compare_vect(center_list_1, center_list_2, neighbor_indexes)
+        speeds = compute_speed(vectors, delta_t=1)  
+        mass = 1.0
+        kinetic_energies = compute_kinetic_energy(speeds, mass)
 
 
 def images_to_video(image_folder,dirname,vidname='animation', fps=25):
@@ -196,19 +202,24 @@ def images_to_video(image_folder,dirname,vidname='animation', fps=25):
     except PermissionError:
         print(f"Permission denied: Unable to create '{output_video_path}'.")
     if len(images) == 0:
-        print("Aucune image trouvée dans le dossier.")
+        print("No image find in folder.")
         return
     os.remove(f'{output_video_path}/{vidname}.mp4')
     clip = moviepy.video.io.ImageSequenceClip.ImageSequenceClip(image_files, fps=fps)
     clip.write_videofile(f'{vidname}.mp4')
     os.rename(f'{vidname}.mp4',f'{output_video_path}/{vidname}.mp4' )
-    print(f"Vidéo créée avec succès : {vidname}")
+    print(f"Video successfully created  : {vidname}")
     return output_video_path
 
 
+def compute_speed(vectors, delta_t):
+    speeds = np.linalg.norm(vectors, axis=1) / delta_t
+    return speeds
 
 
-
+def compute_kinetic_energy(speeds, mass):
+    energies = 0.5 * mass * speeds**2
+    return energies
 
 
 
