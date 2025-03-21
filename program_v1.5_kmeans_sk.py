@@ -138,11 +138,12 @@ def image_compare_vect(center_list_1, center_list_2, neighbor_indexes):
     return vectors
 
 
-def image_compare(images, n):
+def image_compare(images, n, mass):
     disttable=[]
     vectortable=[]
     speeds=[]
     kinetic_energies=[]
+    momentumtable=[]
     images=images
     n=n
     coords=white_check(images)
@@ -152,15 +153,15 @@ def image_compare(images, n):
             cl1=centers
             cl2=centers_lists[i+1]
         except IndexError:
-            return disttable, vectortable, speeds, kinetic_energies
+            return disttable, vectortable, speeds, kinetic_energies, momentumtable
         distances, indexes=image_compare_dist(cl1,cl2)
         disttable.append(distances)
         vectors=image_compare_vect(cl1,cl2,indexes)
         vectortable.append(vectors)
-        vectors = image_compare_vect(cl1, cl2, indexes)
-        speeds.append(compute_speed(vectors, delta_t=1))  
-        mass = 1.0
+        speedlist=compute_speed(vectors, delta_t=1/25)
+        speeds.append(speedlist)
         kinetic_energies.append(compute_kinetic_energy(speeds, mass))
+        momentumtable.append(speedlist*mass)
 
 
 def images_to_video(image_folder,dirname,vidname='animation', fps=25):
