@@ -182,7 +182,6 @@ def images_to_video(image_folder,dirname,vidname='animation', fps=25):
     if len(images) == 0:
         print("Aucune image trouvée dans le dossier.")
         return
-    os.remove(f'{output_video_path}/{vidname}.mp4')
     clip = moviepy.video.io.ImageSequenceClip.ImageSequenceClip(image_files, fps=fps)
     clip.write_videofile(f'{vidname}.mp4')
     os.rename(f'{vidname}.mp4',f'{output_video_path}/{vidname}.mp4' )
