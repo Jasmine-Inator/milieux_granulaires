@@ -141,6 +141,8 @@ def image_compare_vect(center_list_1, center_list_2, neighbor_indexes):
 def image_compare(images, n):
     disttable=[]
     vectortable=[]
+    speeds=[]
+    kinetic_energies=[]
     images=images
     n=n
     coords=white_check(images)
@@ -156,9 +158,9 @@ def image_compare(images, n):
         vectors=image_compare_vect(cl1,cl2,indexes)
         vectortable.append(vectors)
         vectors = image_compare_vect(cl1, cl2, indexes)
-        speeds = compute_speed(vectors, delta_t=1)  
+        speeds.append(compute_speed(vectors, delta_t=1))  
         mass = 1.0
-        kinetic_energies = compute_kinetic_energy(speeds, mass)
+        kinetic_energies.append(compute_kinetic_energy(speeds, mass))
 
 
 def images_to_video(image_folder,dirname,vidname='animation', fps=25):
