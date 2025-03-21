@@ -160,7 +160,7 @@ def image_compare(images, n, mass):
         vectortable.append(vectors)
         speedlist=compute_speed(vectors, delta_t=1/25)
         speeds.append(speedlist)
-        kinetic_energies.append(compute_kinetic_energy(speeds, mass))
+        kinetic_energies.append(compute_kinetic_energy(speedlist, mass))
         momentumtable.append(speedlist*mass)
 
 
@@ -214,15 +214,16 @@ scale=5
 start=t.monotonic()
 images=image_imports(path,templatepath, scale=scale)
 n=25
-#tables=image_compare(images, n)
-coordslist=white_check(images, scale=scale)
+mass=1
+tables=image_compare(images, n, mass)
+#coordslist=white_check(images, scale=scale)
 #origins=cluster_find(coordslist, n)
-image_folder = "Imageplots/*" 
-output_video_path = "output_video"  
-origins=cluster_find(coordslist, n)
-image_folder = "Imageplots/*" 
-output_video_path = "output_video.mp4"  
-images_to_video(image_folder, output_video_path, fps=25)
+#image_folder = "Imageplots/*" 
+#output_video_path = "output_video"  
+#origins=cluster_find(coordslist, n)
+#image_folder = "Imageplots/*" 
+#output_video_path = "output_video"  
+#images_to_video(image_folder, output_video_path, fps=25)
 end=t.monotonic()
 #disttable, vecttable=tables
 #print(len(disttable), len(vecttable), end-start)
