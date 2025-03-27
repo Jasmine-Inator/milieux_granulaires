@@ -145,13 +145,13 @@ def cluster_find(coords_table, n):#need to make more accurate
 def image_compare_dist(centers_lists, scale=11):
     centers_lists=centers_lists.copy()
     indextable=[np.array([i for i in range(25)])]
-    disttable=[]
+    disttable=[np.zeros(25)]
     for i, centers in tqdm(enumerate(centers_lists), desc='comparing distances'):
         try:
             cl1=centers
             cl2=centers_lists[i+1]
         except IndexError:    
-            return disttable, np.array(indextable)
+            return np.array(disttable), np.array(indextable)
         center_list_1=np.array(cl1)
         center_list_2=np.array(cl2)
         distancestable=sp.spatial.distance.cdist(center_list_1, center_list_2)
@@ -178,7 +178,7 @@ def image_compare_vect(center_list_1, center_list_2, neighbor_indexes):
 
 
 def image_compare(images, n, mass):
-    vectortable=[]
+    vectortable=[np.zeros((25,2))]
     speeds=[np.zeros(25)]
     kinetic_energies=[np.zeros(25)]
     momentumtable=[np.zeros(25)]
@@ -192,7 +192,10 @@ def image_compare(images, n, mass):
             cl1=centers
             cl2=centers_lists[i+1]
         except IndexError:
-            return np.array(disttable), np.array(vectortable), np.array(speeds), np.array(kinetic_energies), np.array(momentumtable), np.transpose(indexes)
+            imagedata=(np.array(disttable), np.array(speeds), np.array(kinetic_energies), np.array(momentumtable), np.array(vectortable))
+            pallets=np.transpose(indexes)
+            palletdata=(indexes_to_data(pallets, datatable) for datatable in imagedata)
+            return imagedata, palletdata, pallets 
         vectors=image_compare_vect(cl1,cl2,indexes[i])
         vectortable.append(vectors)
         speedlist=compute_speed(vectors, delta_t=1/25)
