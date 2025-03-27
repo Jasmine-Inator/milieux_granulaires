@@ -111,19 +111,27 @@ def cluster_find(coords_table, n):#need to make more accurate
     print('done looking for clusters')
     return cluster_list
 
-def image_compare_dist(center_list_1, center_list_2, neighbor_indexes=True, scale=11):
-    indexes=[]
-    distances=[]
-    center_list_1=np.array(center_list_1)
-    center_list_2=np.array(center_list_2)
-    distancestable=sp.spatial.distance.cdist(center_list_1, center_list_2)
-    for table in tqdm(distancestable, desc='finding shortest distances'):
-        table=table.tolist()
-        distances.append(scale*min(table))
-        indexes.append(table.index(min(table)))
-    if neighbor_indexes:
-        return distances, indexes
-    return distances
+def image_compare_dist(centers_lists, scale=11):
+    centers_lists=centers_lists.copy()
+    indextable=[np.array([i for i in range(25)])]
+    disttable=[]
+    for i, centers in tqdm(enumerate(centers_lists), desc='comparing distances'):
+        try:
+            cl1=centers
+            cl2=centers_lists[i+1]
+        except IndexError:    
+            return disttable, np.array(indextable)
+        center_list_1=np.array(cl1)
+        center_list_2=np.array(cl2)
+        distancestable=sp.spatial.distance.cdist(center_list_1, center_list_2)
+        distances=[]
+        indexes=[]
+        for table in tqdm(distancestable, desc='finding shortest distances'):
+            table=table.tolist()
+            distances.append(scale*min(table))
+            indexes.append(table.index(min(table)))
+        disttable.append(distances)
+        indextable.append(np.array(indexes))
 
 
 def image_compare_vect(center_list_1, center_list_2, neighbor_indexes):
@@ -139,7 +147,6 @@ def image_compare_vect(center_list_1, center_list_2, neighbor_indexes):
 
 
 def image_compare(images, n, mass):
-    disttable=[]
     vectortable=[]
     speeds=[]
     kinetic_energies=[]
@@ -148,15 +155,14 @@ def image_compare(images, n, mass):
     n=n
     coords=white_check(images)
     centers_lists=cluster_find(coords, n)
+    disttable, indexes=image_compare_dist(centers_lists)
     for i, centers in tqdm(enumerate(centers_lists), desc='comparing images'):
         try:
             cl1=centers
             cl2=centers_lists[i+1]
         except IndexError:
-            return disttable, vectortable, speeds, kinetic_energies, momentumtable
-        distances, indexes=image_compare_dist(cl1,cl2)
-        disttable.append(distances)
-        vectors=image_compare_vect(cl1,cl2,indexes)
+            return disttable, vectortable, speeds, kinetic_energies, momentumtable, np.transpose(indexes)
+        vectors=image_compare_vect(cl1,cl2,indexes[i])
         vectortable.append(vectors)
         speedlist=compute_speed(vectors, delta_t=1/25)
         speeds.append(speedlist)
