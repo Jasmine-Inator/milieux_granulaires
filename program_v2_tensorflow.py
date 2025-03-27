@@ -179,9 +179,9 @@ def image_compare_vect(center_list_1, center_list_2, neighbor_indexes):
 
 def image_compare(images, n, mass):
     vectortable=[]
-    speeds=[]
-    kinetic_energies=[]
-    momentumtable=[]
+    speeds=[np.zeros(25)]
+    kinetic_energies=[np.zeros(25)]
+    momentumtable=[np.zeros(25)]
     images=images
     n=n
     coords=pallet_check(images)
@@ -192,13 +192,28 @@ def image_compare(images, n, mass):
             cl1=centers
             cl2=centers_lists[i+1]
         except IndexError:
-            return disttable, vectortable, speeds, kinetic_energies, momentumtable, np.transpose(indexes)
+            return np.array(disttable), np.array(vectortable), np.array(speeds), np.array(kinetic_energies), np.array(momentumtable), np.transpose(indexes)
         vectors=image_compare_vect(cl1,cl2,indexes[i])
         vectortable.append(vectors)
         speedlist=compute_speed(vectors, delta_t=1/25)
         speeds.append(speedlist)
         kinetic_energies.append(compute_kinetic_energy(speedlist, mass))
         momentumtable.append(speedlist*mass)
+
+def indexes_to_data(indextable, datatable):
+    indextable=indextable.copy()
+    datatable=datatable.copy()
+    pallet_datatable=[]
+    for pallet in tqdm(indextable, desc='sperating pallets'):
+        palletdata=[]
+        for i, index in tqdm(enumerate(pallet), desc='assigning data'):
+            datalist=datatable[i]
+            data=datalist[index]
+            palletdata.append(data)
+        palletdata=np.array(palletdata)
+        pallet_datatable.append(palletdata)
+    pallet_datatable=np.array(pallet_datatable)
+    return pallet_datatable
 
 
 def images_to_video(image_folder,dirname,vidname='animation', fps=25):
