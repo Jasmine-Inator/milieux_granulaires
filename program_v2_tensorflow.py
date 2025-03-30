@@ -19,18 +19,30 @@ from pathlib import Path
 import moviepy
 
 
-def image_imports(path, templatepath,anim=False, rescale=True, scale=30, start=1): #use / in path
+def image_imports(path, templatepath, n,docrop=True, rescale=True, scale=30, start=1): #use / in path
     img_list=[]
     pathlist=[]
     scale=int(scale)
     template=Image.open(templatepath)
-    files={Path(filepath).stem: filepath for filepath in glob.glob(path)}
-    for i, filename in tqdm(enumerate(glob.glob(path)), desc="Importing images"):
-        j=i+start 
-        name=f'25p ({j})'
-        im=Image.open(files[name]).convert('RGB')
-        pathlist.append(files[name])
-        if not anim:
+    files=glob.glob(path)
+    filedict={}
+    for file in tqdm(files, desc= 'sorting files'):
+        file=Path(file)
+        stem=''
+        filestem=file.stem
+        for char in filestem:
+            try:
+                int(char)
+                stem+=char
+            except ValueError:
+                pass
+        filedict.update({int(stem):file})
+    filelabel=np.array(list(filedict.keys()))
+    filelabel.sort()
+    filelist=[filedict[label] for label in filelabel]
+    for filename in tqdm(filelist, desc="Importing images"):
+        im=Image.open(filename).convert('RGB')
+        if  docrop:
             im=crop(im,template)
         if rescale:
             im=im.reduce(scale)

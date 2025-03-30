@@ -14,16 +14,29 @@ import sklearn as sk
 from pathlib import Path
 
 
-def image_imports(path, templatepath,anim=False, rescale=True, scale=30): #use / in path
+def image_imports(path, templatepath, n,docrop=True, rescale=True, scale=30, start=1): #use / in path
     img_list=[]
     scale=int(scale)
     template=Image.open(templatepath)
-    files={Path(filepath).stem: filepath for filepath in glob.glob(path)}
-    for i, filename in tqdm(enumerate(glob.glob(path)), desc="Importing images"):
-        j=i+1 
-        name=f'25p ({j})'
-        im=Image.open(files[name]).convert('RGB')
-        if not anim:
+    files=glob.glob(path)
+    filedict={}
+    for file in tqdm(files, desc= 'sorting files'):
+        file=Path(file)
+        stem=''
+        filestem=file.stem
+        for char in filestem:
+            try:
+                int(char)
+                stem+=char
+            except ValueError:
+                pass
+        filedict.update({int(stem):file})
+    filelabel=np.array(list(filedict.keys()))
+    filelabel.sort()
+    filelist=[filedict[label] for label in filelabel]
+    for filename in tqdm(filelist, desc="Importing images"):
+        im=Image.open(filename).convert('RGB')
+        if  docrop:
             im=crop(im,template)
         if rescale:
             im=im.reduce(scale)
@@ -232,17 +245,17 @@ def compute_kinetic_energy(speeds, mass):
 
 
 
-path=("24_mm_25_particles/24_mm_25_partilces/*")
+path=('24_mm_25_particles/24_mm_25_partilces/*')
 testpath=('Images/test/*')
 templatepath=("Images/template.jpg")
 width, height=Image.open('Images/pallet.jpg').size
 scale=5
 start=t.monotonic()
-images=image_imports(path,templatepath, scale=scale)
+images=image_imports(path,templatepath, n=25, scale=scale)
 n=25
 mass=1
-tables=image_compare(images, n, mass)
-#coordslist=white_check(images, scale=scale)
+#tables=image_compare(images, n, mass)
+coordslist=white_check(images, scale=scale)
 #origins=cluster_find(coordslist, n)
 #image_folder = "Imageplots/*" 
 #output_video_path = "output_video"  
