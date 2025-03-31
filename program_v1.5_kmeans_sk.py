@@ -201,9 +201,9 @@ def image_compare(images, n, mass):
             cl2=centers_lists[i+1]
         except IndexError:
             imagedata=[imgdata(disttable[i],speeds[i],kinetic_energies[i],momentumtable[i],vectortable[i], (i+1)/25) for i, indexlist in enumerate(indexes)]
-            pallets=np.transpose(indexes)
+            indexes=np.transpose(indexes)
             pallets=[palletdata(indexlist, disttable[i], speeds[i], kinetic_energies[i], momentumtable[i], vectortable[i]) for i, indexlist in enumerate(indexes)]
-            return imagedata, palletdata, pallets 
+            return imagedata, pallets, indexes 
         vectors=image_compare_vect(cl1,cl2,indexes[i])
         vectortable.append(vectors)
         speedlist=compute_speed(vectors, delta_t=1/25)
