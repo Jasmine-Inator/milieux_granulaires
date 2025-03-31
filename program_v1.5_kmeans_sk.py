@@ -13,6 +13,32 @@ import itertools as it
 import sklearn as sk
 from pathlib import Path
 
+class imgdata:
+    def __init__(self, distances, speeds, kinetic_energies, momentums, vectors, timestamp):
+        self.distances=np.array(distances)
+        self.speeds=np.array(speeds)
+        self.kinetic_energies=np.array(kinetic_energies)
+        self.momentums=np.array(momentums)
+        self.vectors=np.array(vectors)
+        self.timestamp=timestamp
+        self.avg_distances=np.mean(np.array(distances))
+        self.avg_speeds=np.mean(np.array(speeds))
+        self.avg_kinetic_energies=np.mean(np.array(kinetic_energies))
+        self.avg_momentums=np.mean(np.array(momentums))
+
+class palletdata:
+    def __init__(self, indexlist, distances, speeds, kinetic_energies, momentums, vectors):
+        self.indexes=indexlist
+        self.startindex=indexlist[0]
+        self.distances=np.array([distances[index] for index in indexlist])
+        self.speeds=np.array([speeds[index] for index in indexlist])
+        self.kinetic_energies=np.array([kinetic_energies[index] for index in indexlist])
+        self.momentums=np.array([momentums[index] for index in indexlist])
+        self.vectors=np.array([vectors[index] for index in indexlist])
+        self.avg_distances=np.mean(distances)
+        self.avg_speeds=np.mean(speeds)
+        self.avg_kinetic_energies=np.mean(kinetic_energies)
+        self.avg_momentums=np.mean(momentums)
 
 def image_imports(path, templatepath, n,docrop=True, rescale=True, scale=30, start=1): #use / in path
     img_list=[]
@@ -174,9 +200,9 @@ def image_compare(images, n, mass):
             cl1=centers
             cl2=centers_lists[i+1]
         except IndexError:
-            imagedata=(np.array(disttable), np.array(speeds), np.array(kinetic_energies), np.array(momentumtable), np.array(vectortable))
+            imagedata=[imgdata(disttable[i],speeds[i],kinetic_energies[i],momentumtable[i],vectortable[i], (i+1)/25) for i, indexlist in enumerate(indexes)]
             pallets=np.transpose(indexes)
-            palletdata=tuple([indexes_to_data(pallets, datatable) for datatable in imagedata])
+            pallets=[palletdata(indexlist, disttable[i], speeds[i], kinetic_energies[i], momentumtable[i], vectortable[i]) for i, indexlist in enumerate(indexes)]
             return imagedata, palletdata, pallets 
         vectors=image_compare_vect(cl1,cl2,indexes[i])
         vectortable.append(vectors)
@@ -254,8 +280,8 @@ start=t.monotonic()
 images=image_imports(path,templatepath, n=25, scale=scale)
 n=25
 mass=1
-#tables=image_compare(images, n, mass)
-coordslist=white_check(images, scale=scale)
+tables=image_compare(images, n, mass)
+#coordslist=white_check(images, scale=scale)
 #origins=cluster_find(coordslist, n)
 #image_folder = "Imageplots/*" 
 #output_video_path = "output_video"  
