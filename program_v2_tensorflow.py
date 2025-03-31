@@ -19,7 +19,8 @@ from pathlib import Path
 import moviepy
 
 class imgdata:
-    def __init__(self, distances, speeds, kinetic_energies, momentums, vectors, timestamp):
+    def __init__(self, positions, distances, speeds, kinetic_energies, momentums, vectors, timestamp):
+        self.positions=np.array(positions)
         self.distances=np.array(distances)
         self.speeds=np.array(speeds)
         self.kinetic_energies=np.array(kinetic_energies)
@@ -32,9 +33,10 @@ class imgdata:
         self.avg_momentums=np.mean(np.array(momentums))
 
 class palletdata:
-    def __init__(self, indexlist, distances, speeds, kinetic_energies, momentums, vectors):
+    def __init__(self, positions, indexlist, distances, speeds, kinetic_energies, momentums, vectors):
         self.indexes=indexlist
         self.startindex=indexlist[0]
+        self.positions([positions[i][index] for i, index in enumerate(indexlist)])
         self.distances=np.array([distances[i][index] for i, index in enumerate(indexlist)])
         self.speeds=np.array([speeds[i][index] for i, index in enumerate(indexlist)])
         self.kinetic_energies=np.array([kinetic_energies[i][index] for i, index in enumerate(indexlist)])
@@ -86,6 +88,7 @@ def crop(image,template, yoffset=25, xoffset=-15):
     y2=modheight/2-height/2+yoffset
     image=image.crop((x2,y2,x1,y1))
     return image
+
 # keep working with tensorflow https://www.tensorflow.org/hub/tutorials/tf2_object_detection?hl=en
 def pallet_check(images, modelpath):
     model=tf.saved_model.load(modelpath)
@@ -117,13 +120,15 @@ def palletcoords(result_list, im_height, im_width, Threshold = 0.5):
                 x_max = int(bboxes[idx][3] * im_width)
                 center=((x_min+x_max)/2, (y_min+y_max)/2)
                 coordslist.append(center)
+        coordslist=np.sort(np.array(coordslist),0)
         coords_table.append(coordslist)
     return coords_table
 
 
-def scatter(coords_table, dirname='Frames', scale=30):
+def scatter(coords_table, dirname='Frames', limits=(350,350)):
     coords_table=coords_table.copy()
     directory_name=dirname
+    width, height=limits
     try:
         os.mkdir(directory_name)
         print(f"Directory '{directory_name}' created successfully.")
@@ -139,8 +144,8 @@ def scatter(coords_table, dirname='Frames', scale=30):
         fig = plt.figure()
         ax=fig.add_subplot()
         ax.set_aspect('equal', adjustable='box')
-        plt.xlim(0,1747/scale)
-        plt.ylim(0,1747/scale)
+        plt.xlim(0,width)
+        plt.ylim(0,height)
         #colors = plt.cm.rainbow(np.linspace(0, 1, len(x)))
         img_plot = plt.scatter(x,y,s=2, marker ='+')#, c=colors)
         plots.append(img_plot)
@@ -230,9 +235,9 @@ def image_compare(images, n, mass):
             cl1=centers
             cl2=centers_lists[i+1]
         except IndexError:
-            imagedata=[imgdata(disttable[i],speeds[i],kinetic_energies[i],momentumtable[i],vectortable[i], (i+1)/25) for i, indexlist in enumerate(indexes)]
+            imagedata=[imgdata(centers_lists[i],disttable[i],speeds[i],kinetic_energies[i],momentumtable[i],vectortable[i], (i+1)/25) for i, indexlist in enumerate(indexes)]
             indexes=np.transpose(indexes)
-            pallets=[palletdata(indexlist, disttable[i], speeds[i], kinetic_energies[i], momentumtable[i], vectortable[i]) for i, indexlist in enumerate(indexes)]
+            pallets=[palletdata(indexlist,centers_lists ,disttable, speeds, kinetic_energies, momentumtable, vectortable) for indexlist in indexes]
             return imagedata, pallets, indexes
         vectors=image_compare_vect(cl1,cl2,indexes[i])
         vectortable.append(vectors)

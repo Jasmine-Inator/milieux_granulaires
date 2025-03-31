@@ -14,7 +14,8 @@ import sklearn as sk
 from pathlib import Path
 
 class imgdata:
-    def __init__(self, distances, speeds, kinetic_energies, momentums, vectors, timestamp):
+    def __init__(self, positions, distances, speeds, kinetic_energies, momentums, vectors, timestamp):
+        self.positions=np.array(positions)
         self.distances=np.array(distances)
         self.speeds=np.array(speeds)
         self.kinetic_energies=np.array(kinetic_energies)
@@ -27,14 +28,15 @@ class imgdata:
         self.avg_momentums=np.mean(np.array(momentums))
 
 class palletdata:
-    def __init__(self, indexlist, distances, speeds, kinetic_energies, momentums, vectors):
+    def __init__(self, indexlist, positions, distances, speeds, kinetic_energies, momentums, vectors):
         self.indexes=indexlist
         self.startindex=indexlist[0]
-        self.distances=np.array([distances[index] for index in indexlist])
-        self.speeds=np.array([speeds[index] for index in indexlist])
-        self.kinetic_energies=np.array([kinetic_energies[index] for index in indexlist])
-        self.momentums=np.array([momentums[index] for index in indexlist])
-        self.vectors=np.array([vectors[index] for index in indexlist])
+        self.positions=np.array([positions[i][index] for i, index in enumerate(indexlist)])
+        self.distances=np.array([distances[i][index] for i, index in enumerate(indexlist)])
+        self.speeds=np.array([speeds[i][index] for i, index in enumerate(indexlist)])
+        self.kinetic_energies=np.array([kinetic_energies[i][index] for i, index in enumerate(indexlist)])
+        self.momentums=np.array([momentums[i][index] for i, index in enumerate(indexlist)])
+        self.vectors=np.array([vectors[i][index] for i, index in enumerate(indexlist)])
         self.avg_distances=np.mean(distances)
         self.avg_speeds=np.mean(speeds)
         self.avg_kinetic_energies=np.mean(kinetic_energies)
@@ -80,7 +82,7 @@ def crop(image,template, yoffset=25, xoffset=-15):
     image=image.crop((x2,y2,x1,y1))
     return image
 
-def white_check(images, scale=30):
+def white_check(images):
     images=images
     coords_list=[]
     directory_name='Imageplots'
@@ -90,12 +92,13 @@ def white_check(images, scale=30):
         found_pixels = [i for i, pixel in enumerate(im.getdata()) if (pixel[0]+pixel[1]+pixel[2])/3 > (threshold)]
         found_pixels_coords = [divmod(index, width) for index in found_pixels]
         coords_list.append(found_pixels_coords)
-    scatter(coords_list, directory_name, scale=scale)
+    scatter(coords_list, directory_name, limits=(width, height))
     return coords_list
 
-def scatter(coords_table, dirname='Frames', scale=30):
+def scatter(coords_table, dirname='Frames', limits=(350,350)):
     coords_table=coords_table.copy()
     directory_name=dirname
+    width, height=limits
     try:
         os.mkdir(directory_name)
         print(f"Directory '{directory_name}' created successfully.")
@@ -111,8 +114,8 @@ def scatter(coords_table, dirname='Frames', scale=30):
         fig = plt.figure()
         ax=fig.add_subplot()
         ax.set_aspect('equal', adjustable='box')
-        plt.xlim(0,1747/scale)
-        plt.ylim(0,1747/scale)
+        plt.xlim(0,width)
+        plt.ylim(0,height)
         #colors = plt.cm.rainbow(np.linspace(0, 1, len(x)))
         img_plot = plt.scatter(x,y,s=2, marker ='+')#, c=colors)
         plots.append(img_plot)
@@ -146,6 +149,7 @@ def cluster_find(coords_table, n):#need to make more accurate
     for coords_list in tqdm(coords_table, desc='looking for clusters'):
         coords_list=np.array(coords_list)
         centroids, indexes= sk.cluster.kmeans_plusplus(coords_list, n)
+        #centroids=np.sort(centroids,1)
         cluster_list.append(centroids)
     print('done looking for clusters')
     return cluster_list
@@ -200,9 +204,9 @@ def image_compare(images, n, mass):
             cl1=centers
             cl2=centers_lists[i+1]
         except IndexError:
-            imagedata=[imgdata(disttable[i],speeds[i],kinetic_energies[i],momentumtable[i],vectortable[i], (i+1)/25) for i, indexlist in enumerate(indexes)]
+            imagedata=[imgdata(centers_lists[i],disttable[i],speeds[i],kinetic_energies[i],momentumtable[i],vectortable[i], (i+1)/25) for i, indexlist in enumerate(indexes)]
             indexes=np.transpose(indexes)
-            pallets=[palletdata(indexlist, disttable[i], speeds[i], kinetic_energies[i], momentumtable[i], vectortable[i]) for i, indexlist in enumerate(indexes)]
+            pallets=[palletdata(indexlist,centers_lists ,disttable, speeds, kinetic_energies, momentumtable, vectortable) for indexlist in indexes]
             return imagedata, pallets, indexes 
         vectors=image_compare_vect(cl1,cl2,indexes[i])
         vectortable.append(vectors)
@@ -281,6 +285,10 @@ images=image_imports(path,templatepath, n=25, scale=scale)
 n=25
 mass=1
 tables=image_compare(images, n, mass)
+#impos=[image.positions for image in tables[0]]
+#scatter(impos, dirname='images_sort1')
+#palpos=[pallet.positions for pallet in tables[1]]
+#scatter(palpos, dirname='pallets_sort1')
 #coordslist=white_check(images, scale=scale)
 #origins=cluster_find(coordslist, n)
 #image_folder = "Imageplots/*" 
