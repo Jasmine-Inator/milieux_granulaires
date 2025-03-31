@@ -82,17 +82,18 @@ def crop(image,template, yoffset=25, xoffset=-15):
     image=image.crop((x2,y2,x1,y1))
     return image
 
-def white_check(images):
+def white_check(images, save=True):
     images=images
     coords_list=[]
-    directory_name='Imageplots'
     for im in tqdm(images, desc='checking pixels'):
         width, height = im.size
         threshold=230
         found_pixels = [i for i, pixel in enumerate(im.getdata()) if (pixel[0]+pixel[1]+pixel[2])/3 > (threshold)]
         found_pixels_coords = [divmod(index, width) for index in found_pixels]
         coords_list.append(found_pixels_coords)
-    scatter(coords_list, directory_name, limits=(width, height))
+    if save:
+        directory_name='Imageplots'
+        scatter(coords_list, directory_name, limits=(width, height))
     return coords_list
 
 def scatter(coords_table, dirname='Frames', limits=(350,350)):
@@ -149,10 +150,18 @@ def cluster_find(coords_table, n):#need to make more accurate
     for coords_list in tqdm(coords_table, desc='looking for clusters'):
         coords_list=np.array(coords_list)
         centroids, indexes= sk.cluster.kmeans_plusplus(coords_list, n)
-        #centroids=np.sort(centroids,1)
+        centroids=axis_coords_sort(centroids, 1)
         cluster_list.append(centroids)
     print('done looking for clusters')
     return cluster_list
+
+def axis_coords_sort(array, axis):
+    tags=[i for i in range(25)]
+    adict={coord[axis]+0.01*tags[i]:coord[1-axis] for i, coord in enumerate(array)}
+    keys=np.array(list(adict.keys()))
+    keys.sort()
+    newarray=np.array([np.array([int(key), adict[key]]) for key in keys])
+    return newarray
 
 def image_compare_dist(centers_lists, scale=11):
     centers_lists=centers_lists.copy()
@@ -162,18 +171,22 @@ def image_compare_dist(centers_lists, scale=11):
         try:
             cl1=centers
             cl2=centers_lists[i+1]
-        except IndexError:    
-            return np.array(disttable), np.array(indextable)
+        except IndexError:
+            disttable=np.array(disttable)
+            print('disttable ok')
+            indextable=np.array(indextable)
+            print('indextable ok')
+            return disttable, indextable
         center_list_1=np.array(cl1)
         center_list_2=np.array(cl2)
         distancestable=sp.spatial.distance.cdist(center_list_1, center_list_2)
         distances=[]
         indexes=[]
-        for table in tqdm(distancestable, desc='finding shortest distances'):
+        for table in distancestable:
             table=table.tolist()
             distances.append(scale*min(table))
             indexes.append(table.index(min(table)))
-        disttable.append(distances)
+        disttable.append(np.array(distances))
         indextable.append(np.array(indexes))
 
 
@@ -285,17 +298,15 @@ images=image_imports(path,templatepath, n=25, scale=scale)
 n=25
 mass=1
 tables=image_compare(images, n, mass)
-#impos=[image.positions for image in tables[0]]
-#scatter(impos, dirname='images_sort1')
-#palpos=[pallet.positions for pallet in tables[1]]
-#scatter(palpos, dirname='pallets_sort1')
-#coordslist=white_check(images, scale=scale)
+impos=[image.positions for image in tables[0]]
+scatter(impos, dirname='images_newsort1')
+palpos=[pallet.positions for pallet in tables[1]]
+scatter(palpos, dirname='pallets_newsort1')
+#coordslist=white_check(images, save=False)
 #origins=cluster_find(coordslist, n)
+#distances, indexes=image_compare_dist(origins)
 #image_folder = "Imageplots/*" 
-#output_video_path = "output_video"  
-#origins=cluster_find(coordslist, n)
-#image_folder = "Imageplots/*" 
-#output_video_path = "output_video"  
+#output_video_path = "output_video"   
 #images_to_video(image_folder, output_video_path, fps=25)
 end=t.monotonic()
 #disttable, vecttable=tables

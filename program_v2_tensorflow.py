@@ -184,6 +184,14 @@ def cluster_find(coords_table, n):#need to make more accurate
     print('done looking for clusters')
     return cluster_list
 
+def axis_coords_sort(array, axis):
+    tags=[i for i in range(25)]
+    adict={coord[axis]+0.01*tags[i]:coord[1-axis] for i, coord in enumerate(array)}
+    keys=np.array(list(adict.keys()))
+    keys.sort()
+    newarray=np.array([np.array([int(key), adict[key]]) for key in keys])
+    return newarray
+
 
 def image_compare_dist(centers_lists, scale=11):
     centers_lists=centers_lists.copy()
@@ -204,7 +212,7 @@ def image_compare_dist(centers_lists, scale=11):
             table=table.tolist()
             distances.append(scale*min(table))
             indexes.append(table.index(min(table)))
-        disttable.append(distances)
+        disttable.append(np.array(distances))
         indextable.append(np.array(indexes))
 
 
