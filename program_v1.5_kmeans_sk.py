@@ -12,6 +12,7 @@ import scipy as sp
 import itertools as it
 import sklearn as sk
 from pathlib import Path
+import math
 
 class imgdata:
     def __init__(self, positions, distances, speeds, kinetic_energies, momentums, vectors, timestamp):
@@ -28,7 +29,7 @@ class imgdata:
         self.avg_momentums=np.mean(np.array(momentums))
 
 class palletdata:
-    def __init__(self, indexlist, positions, distances, speeds, kinetic_energies, momentums, vectors):
+    def __init__(self, indexlist, positions, distances, speeds, kinetic_energies, momentums, vectors, angthreshold=1):
         self.indexes=indexlist
         self.startindex=indexlist[0]
         self.positions=np.array([positions[i][index] for i, index in enumerate(indexlist)])
@@ -41,6 +42,27 @@ class palletdata:
         self.avg_speeds=np.mean(speeds)
         self.avg_kinetic_energies=np.mean(kinetic_energies)
         self.avg_momentums=np.mean(momentums)
+        self.mean_free=self.mean_free_path(angthreshold)
+    
+    def mean_free_path(self, angthreshold):
+        distances=self.distances[1:]
+        vectors=self.vectors[1:]
+        free_path=[]
+        freedist=0
+        for i, distance in enumerate(distances):
+            try:
+                v0=vectors[i]
+                v1=vectors[i+1]
+            except IndexError:
+                meanfree=np.mean(np.array(free_path))
+                return meanfree
+            angle = abs(math.atan2(np.linalg.det([v0,v1]),np.dot(v0,v1)))
+            if angle <= angthreshold:
+                freedist+=distance
+            else:
+                free_path.append(freedist)
+                freedist=0
+            
 
 def image_imports(path, templatepath, n,docrop=True, rescale=True, scale=30, start=1): #use / in path
     img_list=[]
@@ -150,14 +172,14 @@ def cluster_find(coords_table, n):#need to make more accurate
     for coords_list in tqdm(coords_table, desc='looking for clusters'):
         coords_list=np.array(coords_list)
         centroids, indexes= sk.cluster.kmeans_plusplus(coords_list, n)
-        centroids=axis_coords_sort(centroids, 1)
+        centroids=axis_coords_sort(centroids, 0)
         cluster_list.append(centroids)
     print('done looking for clusters')
     return cluster_list
 
 def axis_coords_sort(array, axis):
-    tags=[i for i in range(25)]
-    adict={coord[axis]+0.01*tags[i]:coord[1-axis] for i, coord in enumerate(array)}
+    tags=[i for i in range(len(array))]
+    adict={coord[axis]+10**(-len(str(len(array))))*tags[i]:coord[1-axis] for i, coord in enumerate(array)}
     keys=np.array(list(adict.keys()))
     keys.sort()
     newarray=np.array([np.array([int(key), adict[key]]) for key in keys])
@@ -209,7 +231,7 @@ def image_compare(images, n, mass):
     momentumtable=[np.zeros(25)]
     images=images
     n=n
-    coords=white_check(images)
+    coords=white_check(images, save=False)
     centers_lists=cluster_find(coords, n)
     disttable, indexes=image_compare_dist(centers_lists)
     for i, centers in tqdm(enumerate(centers_lists), desc='comparing images'):
@@ -291,17 +313,17 @@ def compute_kinetic_energy(speeds, mass):
 path=('24_mm_25_particles/24_mm_25_partilces/*')
 testpath=('Images/test/*')
 templatepath=("Images/template.jpg")
-width, height=Image.open('Images/pallet.jpg').size
+#width, height=Image.open('Images/pallet.jpg').size
 scale=5
 start=t.monotonic()
 images=image_imports(path,templatepath, n=25, scale=scale)
 n=25
 mass=1
 tables=image_compare(images, n, mass)
-impos=[image.positions for image in tables[0]]
-scatter(impos, dirname='images_newsort1')
-palpos=[pallet.positions for pallet in tables[1]]
-scatter(palpos, dirname='pallets_newsort1')
+#impos=[image.positions for image in tables[0]]
+#scatter(impos, dirname='images_newsort1')
+#palpos=[pallet.positions for pallet in tables[1]]
+#scatter(palpos, dirname='pallets_newsort1')
 #coordslist=white_check(images, save=False)
 #origins=cluster_find(coordslist, n)
 #distances, indexes=image_compare_dist(origins)

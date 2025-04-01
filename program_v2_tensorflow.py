@@ -17,6 +17,7 @@ import itertools as it
 import tensorflow as tf
 from pathlib import Path
 import moviepy
+import math
 
 class imgdata:
     def __init__(self, positions, distances, speeds, kinetic_energies, momentums, vectors, timestamp):
@@ -33,10 +34,10 @@ class imgdata:
         self.avg_momentums=np.mean(np.array(momentums))
 
 class palletdata:
-    def __init__(self, positions, indexlist, distances, speeds, kinetic_energies, momentums, vectors):
+    def __init__(self, indexlist, positions, distances, speeds, kinetic_energies, momentums, vectors, angthreshold=1):
         self.indexes=indexlist
         self.startindex=indexlist[0]
-        self.positions([positions[i][index] for i, index in enumerate(indexlist)])
+        self.positions=np.array([positions[i][index] for i, index in enumerate(indexlist)])
         self.distances=np.array([distances[i][index] for i, index in enumerate(indexlist)])
         self.speeds=np.array([speeds[i][index] for i, index in enumerate(indexlist)])
         self.kinetic_energies=np.array([kinetic_energies[i][index] for i, index in enumerate(indexlist)])
@@ -46,6 +47,26 @@ class palletdata:
         self.avg_speeds=np.mean(speeds)
         self.avg_kinetic_energies=np.mean(kinetic_energies)
         self.avg_momentums=np.mean(momentums)
+        self.mean_free=self.mean_free_path(angthreshold)
+    
+    def mean_free_path(self, angthreshold):
+        distances=self.distances[1:]
+        vectors=self.vectors[1:]
+        free_path=[]
+        freedist=0
+        for i, distance in enumerate(distances):
+            try:
+                v0=vectors[i]
+                v1=vectors[i+1]
+            except IndexError:
+                meanfree=np.mean(np.array(free_path))
+                return meanfree
+            angle = abs(math.atan2(np.linalg.det([v0,v1]),np.dot(v0,v1)))
+            if angle <= angthreshold:
+                freedist+=distance
+            else:
+                free_path.append(freedist)
+                freedist=0
 
 def image_imports(path, templatepath, n,docrop=True, rescale=True, scale=30, start=1): #use / in path
     img_list=[]
@@ -185,8 +206,8 @@ def cluster_find(coords_table, n):#need to make more accurate
     return cluster_list
 
 def axis_coords_sort(array, axis):
-    tags=[i for i in range(25)]
-    adict={coord[axis]+0.01*tags[i]:coord[1-axis] for i, coord in enumerate(array)}
+    tags=[i for i in range(len(array))]
+    adict={coord[axis]+10**(-len(str(len(array))))*tags[i]:coord[1-axis] for i, coord in enumerate(array)}
     keys=np.array(list(adict.keys()))
     keys.sort()
     newarray=np.array([np.array([int(key), adict[key]]) for key in keys])
