@@ -17,20 +17,81 @@ import itertools as it
 import tensorflow as tf
 from pathlib import Path
 import moviepy
+import math
 
+class imgdata:
+    def __init__(self, positions, distances, speeds, kinetic_energies, momentums, vectors, timestamp):
+        self.positions=np.array(positions)
+        self.distances=np.array(distances)
+        self.speeds=np.array(speeds)
+        self.kinetic_energies=np.array(kinetic_energies)
+        self.momentums=np.array(momentums)
+        self.vectors=np.array(vectors)
+        self.timestamp=timestamp
+        self.avg_distances=np.mean(np.array(distances))
+        self.avg_speeds=np.mean(np.array(speeds))
+        self.avg_kinetic_energies=np.mean(np.array(kinetic_energies))
+        self.avg_momentums=np.mean(np.array(momentums))
 
-def image_imports(path, templatepath,anim=False, rescale=True, scale=30, start=1): #use / in path
+class palletdata:
+    def __init__(self, indexlist, positions, distances, speeds, kinetic_energies, momentums, vectors, angthreshold=1):
+        self.indexes=indexlist
+        self.startindex=indexlist[0]
+        self.positions=np.array([positions[i][index] for i, index in enumerate(indexlist)])
+        self.distances=np.array([distances[i][index] for i, index in enumerate(indexlist)])
+        self.speeds=np.array([speeds[i][index] for i, index in enumerate(indexlist)])
+        self.kinetic_energies=np.array([kinetic_energies[i][index] for i, index in enumerate(indexlist)])
+        self.momentums=np.array([momentums[i][index] for i, index in enumerate(indexlist)])
+        self.vectors=np.array([vectors[i][index] for i, index in enumerate(indexlist)])
+        self.avg_distances=np.mean(distances)
+        self.avg_speeds=np.mean(speeds)
+        self.avg_kinetic_energies=np.mean(kinetic_energies)
+        self.avg_momentums=np.mean(momentums)
+        self.mean_free=self.mean_free_path(angthreshold)
+    
+    def mean_free_path(self, angthreshold):
+        distances=self.distances[1:]
+        vectors=self.vectors[1:]
+        free_path=[]
+        freedist=0
+        for i, distance in enumerate(distances):
+            try:
+                v0=vectors[i]
+                v1=vectors[i+1]
+            except IndexError:
+                meanfree=np.mean(np.array(free_path))
+                return meanfree
+            angle = abs(math.atan2(np.linalg.det([v0,v1]),np.dot(v0,v1)))
+            if angle <= angthreshold:
+                freedist+=distance
+            else:
+                free_path.append(freedist)
+                freedist=0
+
+def image_imports(path, templatepath, n,docrop=True, rescale=True, scale=30, start=1): #use / in path
     img_list=[]
     pathlist=[]
     scale=int(scale)
     template=Image.open(templatepath)
-    files={Path(filepath).stem: filepath for filepath in glob.glob(path)}
-    for i, filename in tqdm(enumerate(glob.glob(path)), desc="Importing images"):
-        j=i+start 
-        name=f'25p ({j})'
-        im=Image.open(files[name]).convert('RGB')
-        pathlist.append(files[name])
-        if not anim:
+    files=glob.glob(path)
+    filedict={}
+    for file in tqdm(files, desc= 'sorting files'):
+        file=Path(file)
+        stem=''
+        filestem=file.stem
+        for char in filestem:
+            try:
+                int(char)
+                stem+=char
+            except ValueError:
+                pass
+        filedict.update({int(stem):file})
+    filelabel=np.array(list(filedict.keys()))
+    filelabel.sort()
+    filelist=[filedict[label] for label in filelabel]
+    for filename in tqdm(filelist, desc="Importing images"):
+        im=Image.open(filename).convert('RGB')
+        if  docrop:
             im=crop(im,template)
         if rescale:
             im=im.reduce(scale)
@@ -48,6 +109,7 @@ def crop(image,template, yoffset=25, xoffset=-15):
     y2=modheight/2-height/2+yoffset
     image=image.crop((x2,y2,x1,y1))
     return image
+
 # keep working with tensorflow https://www.tensorflow.org/hub/tutorials/tf2_object_detection?hl=en
 def pallet_check(images, modelpath):
     model=tf.saved_model.load(modelpath)
@@ -79,13 +141,15 @@ def palletcoords(result_list, im_height, im_width, Threshold = 0.5):
                 x_max = int(bboxes[idx][3] * im_width)
                 center=((x_min+x_max)/2, (y_min+y_max)/2)
                 coordslist.append(center)
+        coordslist=np.sort(np.array(coordslist),0)
         coords_table.append(coordslist)
     return coords_table
 
 
-def scatter(coords_table, dirname='Frames', scale=30):
+def scatter(coords_table, dirname='Frames', limits=(350,350)):
     coords_table=coords_table.copy()
     directory_name=dirname
+    width, height=limits
     try:
         os.mkdir(directory_name)
         print(f"Directory '{directory_name}' created successfully.")
@@ -101,8 +165,8 @@ def scatter(coords_table, dirname='Frames', scale=30):
         fig = plt.figure()
         ax=fig.add_subplot()
         ax.set_aspect('equal', adjustable='box')
-        plt.xlim(0,1747/scale)
-        plt.ylim(0,1747/scale)
+        plt.xlim(0,width)
+        plt.ylim(0,height)
         #colors = plt.cm.rainbow(np.linspace(0, 1, len(x)))
         img_plot = plt.scatter(x,y,s=2, marker ='+')#, c=colors)
         plots.append(img_plot)
@@ -141,6 +205,14 @@ def cluster_find(coords_table, n):#need to make more accurate
     print('done looking for clusters')
     return cluster_list
 
+def axis_coords_sort(array, axis):
+    tags=[i for i in range(len(array))]
+    adict={coord[axis]+10**(-len(str(len(array))))*tags[i]:coord[1-axis] for i, coord in enumerate(array)}
+    keys=np.array(list(adict.keys()))
+    keys.sort()
+    newarray=np.array([np.array([int(key), adict[key]]) for key in keys])
+    return newarray
+
 
 def image_compare_dist(centers_lists, scale=11):
     centers_lists=centers_lists.copy()
@@ -161,7 +233,7 @@ def image_compare_dist(centers_lists, scale=11):
             table=table.tolist()
             distances.append(scale*min(table))
             indexes.append(table.index(min(table)))
-        disttable.append(distances)
+        disttable.append(np.array(distances))
         indextable.append(np.array(indexes))
 
 
@@ -192,10 +264,10 @@ def image_compare(images, n, mass):
             cl1=centers
             cl2=centers_lists[i+1]
         except IndexError:
-            imagedata=(np.array(disttable), np.array(speeds), np.array(kinetic_energies), np.array(momentumtable), np.array(vectortable))
-            pallets=np.transpose(indexes)
-            palletdata=(indexes_to_data(pallets, datatable) for datatable in imagedata)
-            return imagedata, palletdata, pallets 
+            imagedata=[imgdata(centers_lists[i],disttable[i],speeds[i],kinetic_energies[i],momentumtable[i],vectortable[i], (i+1)/25) for i, indexlist in enumerate(indexes)]
+            indexes=np.transpose(indexes)
+            pallets=[palletdata(indexlist,centers_lists ,disttable, speeds, kinetic_energies, momentumtable, vectortable) for indexlist in indexes]
+            return imagedata, pallets, indexes
         vectors=image_compare_vect(cl1,cl2,indexes[i])
         vectortable.append(vectors)
         speedlist=compute_speed(vectors, delta_t=1/25)
