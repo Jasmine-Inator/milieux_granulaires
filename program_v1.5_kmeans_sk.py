@@ -15,34 +15,51 @@ from pathlib import Path
 import math
 
 class imgdata:
-    def __init__(self, positions, distances, speeds, kinetic_energies, momentums, vectors, timestamp):
+    def __init__(self, positions, distances, vectors, timestamp, mass, framerate):
         self.positions=np.array(positions)
         self.distances=np.array(distances)
-        self.speeds=np.array(speeds)
-        self.kinetic_energies=np.array(kinetic_energies)
-        self.momentums=np.array(momentums)
         self.vectors=np.array(vectors)
+        self.speeds=np.array(self.compute_speed(framerate))
+        self.kinetic_energies=np.array(self.compute_kinetic_energy(	mass))
+        self.momentums=np.array(self.speeds*mass)
         self.timestamp=timestamp
-        self.avg_distances=np.mean(np.array(distances))
-        self.avg_speeds=np.mean(np.array(speeds))
-        self.avg_kinetic_energies=np.mean(np.array(kinetic_energies))
-        self.avg_momentums=np.mean(np.array(momentums))
+        self.avg_distances=np.mean(self.distances)
+        self.avg_speeds=np.mean(self.speeds)
+        self.avg_kinetic_energies=np.mean(self.kinetic_energies)
+        self.avg_momentums=np.mean(self.momentums)
+        
+    def compute_speed(self, framerate):
+        speeds = np.linalg.norm(self.vectors, axis=1) / framerate
+        return speeds
+    
+    def compute_kinetic_energy(self, mass):
+        energies = 0.5 * mass * (self.speeds)**2
+        return energies
 
 class palletdata:
-    def __init__(self, indexlist, positions, distances, speeds, kinetic_energies, momentums, vectors, angthreshold=1):
+    def __init__(self, indexlist, positions, distances, vectors, mass, framerate, angthreshold=1):
         self.indexes=indexlist
         self.startindex=indexlist[0]
+        self.vectors=np.array([vectors[i][index] for i, index in enumerate(indexlist)])
         self.positions=np.array([positions[i][index] for i, index in enumerate(indexlist)])
         self.distances=np.array([distances[i][index] for i, index in enumerate(indexlist)])
-        self.speeds=np.array([speeds[i][index] for i, index in enumerate(indexlist)])
-        self.kinetic_energies=np.array([kinetic_energies[i][index] for i, index in enumerate(indexlist)])
-        self.momentums=np.array([momentums[i][index] for i, index in enumerate(indexlist)])
-        self.vectors=np.array([vectors[i][index] for i, index in enumerate(indexlist)])
-        self.avg_distances=np.mean(distances)
-        self.avg_speeds=np.mean(speeds)
-        self.avg_kinetic_energies=np.mean(kinetic_energies)
-        self.avg_momentums=np.mean(momentums)
+        self.speeds=self.compute_speed(framerate)
+        self.kinetic_energies=self.compute_kinetic_energy(mass)
+        self.momentums=self.speeds*mass
+        self.avg_distances=np.mean(self.distances)
+        self.total_distance=sum(self.distances)
+        self.avg_speeds=np.mean(self.speeds)
+        self.avg_kinetic_energies=np.mean(self.kinetic_energies)
+        self.avg_momentums=np.mean(self.momentums)
         self.mean_free=self.mean_free_path(angthreshold)
+        
+    def compute_speed(self, framerate):
+           speeds = np.linalg.norm(self.vectors, axis=1) / framerate
+           return speeds
+       
+    def compute_kinetic_energy(self, mass):
+           energies = 0.5 * mass * (self.speeds)**2
+           return energies
     
     def mean_free_path(self, angthreshold):
         distances=self.distances[1:]
@@ -224,11 +241,8 @@ def image_compare_vect(center_list_1, center_list_2, neighbor_indexes):
     return vectors
 
 
-def image_compare(images, n, mass):
+def image_compare(images, n, mass, framerate):
     vectortable=[np.zeros((25,2))]
-    speeds=[np.zeros(25)]
-    kinetic_energies=[np.zeros(25)]
-    momentumtable=[np.zeros(25)]
     images=images
     n=n
     coords=white_check(images, save=False)
@@ -239,31 +253,13 @@ def image_compare(images, n, mass):
             cl1=centers
             cl2=centers_lists[i+1]
         except IndexError:
-            imagedata=[imgdata(centers_lists[i],disttable[i],speeds[i],kinetic_energies[i],momentumtable[i],vectortable[i], (i+1)/25) for i, indexlist in enumerate(indexes)]
+            imagedata=[imgdata(centers_lists[i],disttable[i],vectortable[i], (i+1)/25, mass, framerate) for i, indexlist in enumerate(indexes)]
             indexes=np.transpose(indexes)
-            pallets=[palletdata(indexlist,centers_lists ,disttable, speeds, kinetic_energies, momentumtable, vectortable) for indexlist in indexes]
+            pallets=[palletdata(indexlist,centers_lists ,disttable, vectortable, mass, framerate) for indexlist in indexes]
             return imagedata, pallets, indexes 
         vectors=image_compare_vect(cl1,cl2,indexes[i])
         vectortable.append(vectors)
-        speedlist=compute_speed(vectors, delta_t=1/25)
-        speeds.append(speedlist)
-        kinetic_energies.append(compute_kinetic_energy(speedlist, mass))
-        momentumtable.append(speedlist*mass)
 
-def indexes_to_data(indextable, datatable):
-    indextable=indextable.copy()
-    datatable=datatable.copy()
-    pallet_datatable=[]
-    for pallet in tqdm(indextable, desc='sperating pallets'):
-        palletdata=[]
-        for i, index in tqdm(enumerate(pallet), desc='assigning data'):
-            datalist=datatable[i]
-            data=datalist[index]
-            palletdata.append(data)
-        palletdata=np.array(palletdata)
-        pallet_datatable.append(palletdata)
-    pallet_datatable=np.array(pallet_datatable)
-    return pallet_datatable
         
             
 
@@ -294,14 +290,8 @@ def images_to_video(image_folder,dirname,vidname='animation', fps=25):
     return output_video_path
 
 
-def compute_speed(vectors, delta_t):
-    speeds = np.linalg.norm(vectors, axis=1) / delta_t
-    return speeds
 
 
-def compute_kinetic_energy(speeds, mass):
-    energies = 0.5 * mass * speeds**2
-    return energies
 
 
 
@@ -313,13 +303,14 @@ def compute_kinetic_energy(speeds, mass):
 path=('24_mm_25_particles/24_mm_25_partilces/*')
 testpath=('Images/test/*')
 templatepath=("Images/template.jpg")
+framerate=25
 #width, height=Image.open('Images/pallet.jpg').size
 scale=5
 start=t.monotonic()
 images=image_imports(path,templatepath, n=25, scale=scale)
 n=25
 mass=1
-tables=image_compare(images, n, mass)
+tables=image_compare(images, n, mass, framerate)
 #impos=[image.positions for image in tables[0]]
 #scatter(impos, dirname='images_newsort1')
 #palpos=[pallet.positions for pallet in tables[1]]
