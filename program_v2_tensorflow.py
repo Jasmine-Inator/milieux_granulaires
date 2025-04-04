@@ -325,14 +325,17 @@ def datasave(datacollection):
     kinetic_energies=[obj.avg_kinetic_energies for obj in datacollection]
     momentums=[obj.avg_momentums for obj in datacollection]
     try:
-        fulldata=np.transpose(np.array([t[:],distances[:],speeds[:],kinetic_energies[:],momentums[:]]))
+        fulldata=np.array([t[:],distances[:],speeds[:],kinetic_energies[:],momentums[:]])
+        labels=['t','distance','speed','kinetic energy','momentum']
     except NameError:
-        fulldata=np.transpose(np.array([indexes[:],distances[:],speeds[:],kinetic_energies[:],momentums[:]]))
+        fulldata=np.array([indexes[:],distances[:],speeds[:],kinetic_energies[:],momentums[:]])
+        labels=['index','distance between t and t-1','speed','kinetic energy','momentum']
     dataset = pd.DataFrame()
     for i, data in enumerate(fulldata):
-        dataset[f'col{i+1}']=fulldata[i]
-    dataset.to_excel('saved_data/{file}')
+        dataset[f'{labels[i]}']=fulldata[i]
+    dataset.to_excel(f'saved_data/{file}')
     return dataset
+        
 
 
 path=("24_mm_25_particles/24_mm_25_partilces/*")

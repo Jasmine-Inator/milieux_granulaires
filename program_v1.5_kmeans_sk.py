@@ -311,13 +311,15 @@ def datasave(datacollection):
     kinetic_energies=[obj.avg_kinetic_energies for obj in datacollection]
     momentums=[obj.avg_momentums for obj in datacollection]
     try:
-        fulldata=np.transpose(np.array([t[:],distances[:],speeds[:],kinetic_energies[:],momentums[:]]))
+        fulldata=np.array([t[:],distances[:],speeds[:],kinetic_energies[:],momentums[:]])
+        labels=['t','distance','speed','kinetic energy','momentum']
     except NameError:
-        fulldata=np.transpose(np.array([indexes[:],distances[:],speeds[:],kinetic_energies[:],momentums[:]]))
+        fulldata=np.array([indexes[:],distances[:],speeds[:],kinetic_energies[:],momentums[:]])
+        labels=['index','distance between t and t-1','speed','kinetic energy','momentum']
     dataset = pd.DataFrame()
     for i, data in enumerate(fulldata):
-        dataset[f'col{i+1}']=fulldata[i]
-    dataset.to_excel('saved_data/{file}')
+        dataset[f'{labels[i]}']=fulldata[i]
+    dataset.to_excel(f'saved_data/{file}')
     return dataset
         
     
@@ -341,6 +343,7 @@ images=image_imports(path,templatepath, n=25, scale=scale)
 n=25
 mass=1
 tables=image_compare(images, n, mass, framerate)
+datasave(tables[0])
 #impos=[image.positions for image in tables[0]]
 #scatter(impos, dirname='images_newsort1')
 #palpos=[pallet.positions for pallet in tables[1]]
