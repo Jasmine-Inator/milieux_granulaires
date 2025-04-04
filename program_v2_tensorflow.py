@@ -18,6 +18,7 @@ import tensorflow as tf
 from pathlib import Path
 import moviepy
 import math
+import pandas as pd
 
 class imgdata:
     def __init__(self, positions, distances, vectors, timestamp, mass, framerate):
@@ -266,10 +267,9 @@ def image_compare_vect(center_list_1, center_list_2, neighbor_indexes):
     return vectors
 
 
-def image_compare(images, n, mass, framerate):
+def image_compare(images, mass, framerate):
     vectortable=[np.zeros((25,2))]
     images=images
-    n=n
     centers_lists=pallet_check(images)
     disttable, indexes=image_compare_dist(centers_lists)
     for i, centers in tqdm(enumerate(centers_lists), desc='comparing images'):
@@ -304,6 +304,35 @@ def images_to_video(image_folder,dirname,vidname='animation', fps=25):
     print(f"Video successfully created  : {vidname}")
     return output_video_path
 
+def datasave(datacollection):
+    datacollection=datacollection[:]
+    directory_name='saved_data'
+    try:
+        os.mkdir(directory_name)
+        print(f"Directory '{directory_name}' created successfully.")
+    except FileExistsError:
+        print(f"Directory '{directory_name}' already exists.")
+    except PermissionError:
+        print(f"Permission denied: Unable to create '{directory_name}'.")
+    try:
+        t=[image.timestamp for image in datacollection]
+        file='images.xlsx'
+    except AttributeError:
+        indexes=[pallet.startindex for pallet in datacollection]
+        file='pallets.xlsx'
+    distances=[obj.avg_distances for obj in datacollection]
+    speeds=[obj.avg_speeds for obj in datacollection]
+    kinetic_energies=[obj.avg_kinetic_energies for obj in datacollection]
+    momentums=[obj.avg_momentums for obj in datacollection]
+    try:
+        fulldata=np.transpose(np.array([t[:],distances[:],speeds[:],kinetic_energies[:],momentums[:]]))
+    except NameError:
+        fulldata=np.transpose(np.array([indexes[:],distances[:],speeds[:],kinetic_energies[:],momentums[:]]))
+    dataset = pd.DataFrame()
+    for i, data in enumerate(fulldata):
+        dataset[f'col{i+1}']=fulldata[i]
+    dataset.to_excel('saved_data/{file}')
+    return dataset
 
 
 path=("24_mm_25_particles/24_mm_25_partilces/*")
