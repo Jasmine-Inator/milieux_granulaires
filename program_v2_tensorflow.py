@@ -316,10 +316,10 @@ def datasave(datacollection):
         print(f"Permission denied: Unable to create '{directory_name}'.")
     try:
         t=[image.timestamp for image in datacollection]
-        file='images.xlsx'
+        file='images.csv'
     except AttributeError:
         indexes=[pallet.startindex for pallet in datacollection]
-        file='pallets.xlsx'
+        file='pallets.csv'
     distances=[obj.avg_distances for obj in datacollection]
     speeds=[obj.avg_speeds for obj in datacollection]
     kinetic_energies=[obj.avg_kinetic_energies for obj in datacollection]
@@ -333,7 +333,7 @@ def datasave(datacollection):
     dataset = pd.DataFrame()
     for i, data in enumerate(fulldata):
         dataset[f'{labels[i]}']=fulldata[i]
-    dataset.to_excel(f'saved_data/{file}')
+    dataset.to_csv(f'saved_data/{file}')
     return dataset
         
 
