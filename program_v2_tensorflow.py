@@ -277,10 +277,12 @@ def image_compare(images, mass, framerate):
             cl1=centers
             cl2=centers_lists[i+1]
         except IndexError:
-            imagedata=[imgdata(centers_lists[i],disttable[i],vectortable[i], (i+1)/25, mass, framerate) for i, indexlist in enumerate(indexes)]
-            indexes=np.transpose(indexes)
-            pallets=[palletdata(indexlist,centers_lists ,disttable, vectortable, mass, framerate) for indexlist in indexes]
-            return imagedata, pallets, indexes 
+             images=[imgdata(centers_lists[i],disttable[i],vectortable[i], (i+1)/25, mass, framerate) for i, indexlist in enumerate(indexes)]
+             avgimages=datasave(images)
+             indexes=np.transpose(indexes)
+             pallets=[palletdata(indexlist,centers_lists ,disttable, vectortable, mass, framerate) for indexlist in indexes]
+             avgpallets=datasave(pallets)
+             return images, pallets, avgimages, avgpallets, indexes 
         vectors=image_compare_vect(cl1,cl2,indexes[i])
         vectortable.append(vectors)
 
