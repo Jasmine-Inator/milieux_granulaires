@@ -82,7 +82,7 @@ class palletdata:
                 freedist=0
             
 
-def image_imports(path, templatepath, n,docrop=True, rescale=True, scale=30, start=1): #use / in path
+def image_imports(path, templatepath, docrop=True, rescale=True, scale=30, start=1): #use / in path
     img_list=[]
     scale=int(scale)
     template=Image.open(templatepath)
@@ -203,10 +203,10 @@ def axis_coords_sort(array, axis):
     newarray=np.array([np.array([int(key), adict[key]]) for key in keys])
     return newarray
 
-def image_compare_dist(centers_lists, scale=11):
+def image_compare_dist(centers_lists, n, scale=11):
     centers_lists=centers_lists.copy()
-    indextable=[np.array([i for i in range(25)])]
-    disttable=[np.zeros(25)]
+    indextable=[np.array([i for i in range(n)])]
+    disttable=[np.zeros(n)]
     for i, centers in tqdm(enumerate(centers_lists), desc='comparing distances'):
         try:
             cl1=centers
@@ -243,12 +243,12 @@ def image_compare_vect(center_list_1, center_list_2, neighbor_indexes):
 
 
 def image_compare(images, n, mass, framerate):
-    vectortable=[np.zeros((25,2))]
+    vectortable=[np.zeros((n,2))]
     images=images.copy()
     n=n
     coords=white_check(images, save=False)
     centers_lists=cluster_find(coords, n)
-    disttable, indexes=image_compare_dist(centers_lists)
+    disttable, indexes=image_compare_dist(centers_lists,n)
     for i, centers in tqdm(enumerate(centers_lists), desc='comparing images'):
         try:
             cl1=centers
@@ -334,15 +334,15 @@ def datasave(datacollection):
 
 
 
-path=('24_mm_25_particles/24_mm_25_partilces/*')
+path=('24_mm_50_particles_LRC/*')
 testpath=('Images/test/*')
 templatepath=("Images/template.jpg")
 framerate=25
 #width, height=Image.open('Images/pallet.jpg').size
 scale=5
 start=t.monotonic()
-images=image_imports(path,templatepath, n=25, scale=scale)
-n=25
+images=image_imports(path,templatepath, docrop=False, scale=scale)
+n=50
 mass=1
 tables=image_compare(images, n, mass, framerate)
 #impos=[image.positions for image in tables[0]]

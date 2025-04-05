@@ -232,22 +232,26 @@ def axis_coords_sort(array, axis):
     return newarray
 
 
-def image_compare_dist(centers_lists, scale=11):
+def image_compare_dist(centers_lists, n, scale=11):
     centers_lists=centers_lists.copy()
-    indextable=[np.array([i for i in range(25)])]
-    disttable=[np.zeros(25)]
+    indextable=[np.array([i for i in range(n)])]
+    disttable=[np.zeros(n)]
     for i, centers in tqdm(enumerate(centers_lists), desc='comparing distances'):
         try:
             cl1=centers
             cl2=centers_lists[i+1]
-        except IndexError:    
-            return np.array(disttable), np.array(indextable)
+        except IndexError:
+            disttable=np.array(disttable)
+            print('disttable ok')
+            indextable=np.array(indextable)
+            print('indextable ok')
+            return disttable, indextable
         center_list_1=np.array(cl1)
         center_list_2=np.array(cl2)
         distancestable=sp.spatial.distance.cdist(center_list_1, center_list_2)
         distances=[]
         indexes=[]
-        for table in tqdm(distancestable, desc='finding shortest distances'):
+        for table in distancestable:
             table=table.tolist()
             distances.append(scale*min(table))
             indexes.append(table.index(min(table)))
@@ -267,11 +271,12 @@ def image_compare_vect(center_list_1, center_list_2, neighbor_indexes):
     return vectors
 
 
-def image_compare(images, mass, framerate):
-    vectortable=[np.zeros((25,2))]
+def image_compare(images, n, mass, framerate):
+    n=n
+    vectortable=[np.zeros((n,2))]
     images=images
     centers_lists=pallet_check(images)
-    disttable, indexes=image_compare_dist(centers_lists)
+    disttable, indexes=image_compare_dist(centers_lists, n)
     for i, centers in tqdm(enumerate(centers_lists), desc='comparing images'):
         try:
             cl1=centers
@@ -344,10 +349,11 @@ path=("24_mm_25_particles/24_mm_25_partilces/*")
 testpath=('Images/test/*')
 templatepath=("Images/template.jpg")
 scale=5
+n=int(input('How many pallets are there?'))
 start=t.monotonic()
 images=image_imports(path,templatepath, scale=scale)
 modelpath=input('Put the relative path to exported model using / in the path')
-tables=image_compare(images, modelpath)
+tables=image_compare(images, modelpath, n)
 coordslist=palletcoords(pallet_check(images, modelpath))
 #origins=cluster_find(coordslist, n)
 image_folder = "Imageplots/*" 
