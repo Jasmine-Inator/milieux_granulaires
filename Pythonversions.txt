@@ -1,5 +1,0 @@
-C:\Users\Jas\AppData\Local\Programs\Python\Python313\
-C:\Users\Jas\AppData\Local\Programs\Python\Python313\Scripts\
-C:\D\Data\python 3.11.5\Scripts\
-C:\D\Data\python 3.11.5\
-C:\Users\Jas\AppData\Local\Programs\Python\Python310\
