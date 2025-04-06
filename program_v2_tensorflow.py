@@ -19,6 +19,7 @@ from pathlib import Path
 import moviepy
 import math
 import pandas as pd
+import re
 
 class imgdata:
     def __init__(self, positions, distances, vectors, timestamp, mass, framerate):
@@ -97,12 +98,8 @@ def image_imports(path, templatepath, n,docrop=True, rescale=True, scale=30, sta
         file=Path(file)
         stem=''
         filestem=file.stem
-        for char in filestem:
-            try:
-                int(char)
-                stem+=char
-            except ValueError:
-                pass
+        for char in re.findall('[0-9]', filestem):
+            stem+= char
         filedict.update({int(stem):file})
     filelabel=np.array(list(filedict.keys()))
     filelabel.sort()

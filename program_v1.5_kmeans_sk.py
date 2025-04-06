@@ -14,6 +14,7 @@ import sklearn as sk
 from pathlib import Path
 import math
 import pandas as pd
+import re
 
 class imgdata:
     def __init__(self, positions, distances, vectors, timestamp, mass, framerate):
@@ -92,12 +93,8 @@ def image_imports(path, templatepath, docrop=True, rescale=True, scale=30, start
         file=Path(file)
         stem=''
         filestem=file.stem
-        for char in filestem:
-            try:
-                int(char)
-                stem+=char
-            except ValueError:
-                pass
+        for char in re.findall('[0-9]', filestem):
+            stem+= char
         filedict.update({int(stem):file})
     filelabel=np.array(list(filedict.keys()))
     filelabel.sort()
@@ -246,7 +243,7 @@ def image_compare(images, n, mass, framerate):
     vectortable=[np.zeros((n,2))]
     images=images.copy()
     n=n
-    coords=white_check(images, save=False)
+    coords=white_check(images, save=True)
     centers_lists=cluster_find(coords, n)
     disttable, indexes=image_compare_dist(centers_lists,n)
     for i, centers in tqdm(enumerate(centers_lists), desc='comparing images'):
@@ -334,7 +331,7 @@ def datasave(datacollection):
 
 
 
-path=('24_mm_50_particles_LRC/*')
+path=('Ratio_2_n20_LR_Crop/*')
 testpath=('Images/test/*')
 templatepath=("Images/template.jpg")
 framerate=25
@@ -342,15 +339,16 @@ framerate=25
 scale=5
 start=t.monotonic()
 images=image_imports(path,templatepath, docrop=False, scale=scale)
-n=50
+n=20
 mass=1
-tables=image_compare(images, n, mass, framerate)
+#tables=image_compare(images, n, mass, framerate)
 #impos=[image.positions for image in tables[0]]
 #scatter(impos, dirname='images_newsort1')
 #palpos=[pallet.positions for pallet in tables[1]]
 #scatter(palpos, dirname='pallets_newsort1')
-#coordslist=white_check(images, save=False)
+coordslist=white_check(images, save=True)
 #origins=cluster_find(coordslist, n)
+#scatter(origins)
 #distances, indexes=image_compare_dist(origins)
 #image_folder = "Imageplots/*" 
 #output_video_path = "output_video"   
