@@ -126,10 +126,10 @@ def crop(image,template, yoffset=25, xoffset=-15):
     return image
 
 # keep working with tensorflow https://www.tensorflow.org/hub/tutorials/tf2_object_detection?hl=en
-def pallet_check(images, modelpath):
+def pallet_check(images, modelpath, shape):
     model=tf.saved_model.load(modelpath)
     images=images.copy()
-    category_index = "Tensorflow/workspace/training_demo/annotations/label_map.pbtxt"
+    category_index = f"Tensorflow/workspace/training_demo_{shape}/annotations/label_map.pbtxt"
     convimages=[tf.image.convert_image_dtype(image, tf.uint8) for image in tqdm(images, desc='finishing to open images')]
     result_list=[]
     for im in tqdm(convimages, desc='checking for pallets'):
@@ -210,15 +210,6 @@ def flatten(_list_):
     return np.array(list(it.chain.from_iterable(_list_)))
 
 
-def cluster_find(coords_table, n):#need to make more accurate
-    coords_table=coords_table.copy()
-    cluster_list=[]
-    for coords_list in tqdm(coords_table, desc='looking for clusters'):
-        coords_list=np.array(coords_list)
-        centroids, indexes= sk.cluster.kmeans_plusplus(coords_list, n)
-        cluster_list.append(centroids)
-    print('done looking for clusters')
-    return cluster_list
 
 def axis_coords_sort(array, axis):
     tags=[i for i in range(len(array))]
@@ -340,17 +331,26 @@ def datasave(datacollection):
     dataset.to_csv(f'saved_data/{file}')
     return dataset
         
-
+def setup():
+    path=input('Imput the path to the folder with the images.')
+    if os.path.isdir(path)!=True:
+        print('Invalid path')
+        exit()
+    shape=input('Which shape do you want to track (use _ instead of spaces)')
+    modelpath=f'Tensorflow/workspace/training_demo_{shape}/exported_models'
+    if os.path.isdir(modelpath)!=True:
+        print('Invalid path')
+        exit()
+    return path, modelpath
 
 path=("24_mm_25_particles/24_mm_25_partilces/*")
 testpath=('Images/test/*')
 templatepath=("Images/template.jpg")
-scale=5
-n=int(input('How many pallets are there?'))
 start=t.monotonic()
-images=image_imports(path,templatepath, scale=scale)
-modelpath=input('Put the relative path to exported model using / in the path')
-tables=image_compare(images, modelpath, n)
+images=image_imports(path)
+shape=input('Which shape do you want to track (use _ instead of spaces)')
+modelpath=f'Tensorflow/workspace/training_demo_{shape}/exported_models'
+tables=image_compare(images, modelpath)
 coordslist=palletcoords(pallet_check(images, modelpath))
 #origins=cluster_find(coordslist, n)
 image_folder = "Imageplots/*" 
