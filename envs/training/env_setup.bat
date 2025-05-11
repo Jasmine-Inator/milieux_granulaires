@@ -20,3 +20,4 @@ mkdir official
 cd official
 for /f "tokens=*" %%G in ('cd') do set dpath1=%%G
 xcopy %opath1% %dpath1% /h /i /c /k /e /r /y
+cmd /k

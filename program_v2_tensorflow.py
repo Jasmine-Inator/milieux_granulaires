@@ -7,6 +7,7 @@ import numpy as np
 import io
 from six import BytesIO
 from PIL import Image
+import cv2
 from six.moves.urllib.request import urlopen
 import matplotlib.pyplot as plt
 from object_detection.utils import label_map_util
@@ -87,11 +88,9 @@ class palletdata:
                 free_path.append(freedist)
                 freedist=0
 
-def image_imports(path, templatepath, n,docrop=True, rescale=True, scale=30, start=1): #use / in path
+def image_imports(path, rescale=True, scale=0, start=1): #use / in path
     img_list=[]
-    pathlist=[]
     scale=int(scale)
-    template=Image.open(templatepath)
     files=glob.glob(path)
     filedict={}
     for file in tqdm(files, desc= 'sorting files'):
@@ -105,14 +104,11 @@ def image_imports(path, templatepath, n,docrop=True, rescale=True, scale=30, sta
     filelabel.sort()
     filelist=[filedict[label] for label in filelabel]
     for filename in tqdm(filelist, desc="Importing images"):
-        im=Image.open(filename).convert('RGB')
-        if  docrop:
-            im=crop(im,template)
-        if rescale:
-            im=im.reduce(scale)
-        im=im.rotate(-90)
+        im=Image.open(filename)
+        im=np.asarray(im)
+        im=np.expand_dims(im, axis=0)
         img_list.append(im)
-    return img_list, pathlist
+    return img_list
 
 
 def crop(image,template, yoffset=25, xoffset=-15):
@@ -129,33 +125,32 @@ def crop(image,template, yoffset=25, xoffset=-15):
 def pallet_check(images, modelpath, shape):
     model=tf.saved_model.load(modelpath)
     images=images.copy()
+    im_height, im_width =images[0].shape[1:-1]
     category_index = f"Tensorflow/workspace/training_demo_{shape}/annotations/label_map.pbtxt"
     convimages=[tf.image.convert_image_dtype(image, tf.uint8) for image in tqdm(images, desc='finishing to open images')]
-    result_list=[]
+    result_table=[]
     for im in tqdm(convimages, desc='checking for pallets'):
-        im_height, im_width = im.size
         detections = model(im)
         result = {key:value.numpy() for key,value in detections.items()}
-        result_list.append(result)
-    return result_list, im_height, im_width
+        result_table.append(result)
+    return result_table, im_height, im_width
 
 
-def palletcoords(result_list, im_height, im_width, Threshold = 0.5):
-    result_list=result_list.copy()
+def palletcoords(result_table, im_height, im_width, Threshold = 0.5):
+    result_table=result_table.copy()
     Threshold = Threshold
     coords_table=[]
-    for results in tqdm(result_list, desc='processing results'):
+    for results in tqdm(result_table, desc='processing results'):
         coordslist=[]
-        bboxes = result_list['detection_boxes'][0].numpy()
-        bscores = result_list['detection_scores'][0].numpy()
+        bboxes = results['detection_boxes'][0]
+        bscores = results['detection_scores'][0]
         for idx, boxes in tqdm(enumerate(bboxes)):
-            if bscores[idx] >= Threshold:
-                y_min = int(bboxes[idx][0] * im_height)
-                x_min = int(bboxes[idx][1] * im_width)
-                y_max = int(bboxes[idx][2] * im_height)
-                x_max = int(bboxes[idx][3] * im_width)
-                center=((x_min+x_max)/2, (y_min+y_max)/2)
-                coordslist.append(center)
+            y_min = int(bboxes[idx][0] * im_height)
+            x_min = int(bboxes[idx][1] * im_width)
+            y_max = int(bboxes[idx][2] * im_height)
+            x_max = int(bboxes[idx][3] * im_width)
+            center=((x_min+x_max)/2, (y_min+y_max)/2)
+            coordslist.append(center)
         coordslist=np.sort(np.array(coordslist),0)
         coords_table.append(coordslist)
     return coords_table
@@ -220,7 +215,8 @@ def axis_coords_sort(array, axis):
     return newarray
 
 
-def image_compare_dist(centers_lists, n, scale=11):
+def image_compare_dist(centers_lists, n):
+    n=len(centers_lists[0])
     centers_lists=centers_lists.copy()
     indextable=[np.array([i for i in range(n)])]
     disttable=[np.zeros(n)]
@@ -229,6 +225,7 @@ def image_compare_dist(centers_lists, n, scale=11):
             cl1=centers
             cl2=centers_lists[i+1]
         except IndexError:
+            print(len(disttable), [len(dists) for dists in disttable])
             disttable=np.array(disttable)
             print('disttable ok')
             indextable=np.array(indextable)
@@ -241,7 +238,7 @@ def image_compare_dist(centers_lists, n, scale=11):
         indexes=[]
         for table in distancestable:
             table=table.tolist()
-            distances.append(scale*min(table))
+            distances.append(min(table))
             indexes.append(table.index(min(table)))
         disttable.append(np.array(distances))
         indextable.append(np.array(indexes))
@@ -259,11 +256,12 @@ def image_compare_vect(center_list_1, center_list_2, neighbor_indexes):
     return vectors
 
 
-def image_compare(images, n, mass, framerate):
+def image_compare(images, n, modelpath, shape, mass=1, framerate=25):
     n=n
     vectortable=[np.zeros((n,2))]
     images=images
-    centers_lists=pallet_check(images)
+    result_list, im_height, im_width=pallet_check(images, modelpath,shape)
+    centers_lists=palletcoords(result_list, im_height, im_width)
     disttable, indexes=image_compare_dist(centers_lists, n)
     for i, centers in tqdm(enumerate(centers_lists), desc='comparing images'):
         try:
@@ -275,6 +273,8 @@ def image_compare(images, n, mass, framerate):
              indexes=np.transpose(indexes)
              pallets=[palletdata(indexlist,centers_lists ,disttable, vectortable, mass, framerate) for indexlist in indexes]
              avgpallets=datasave(pallets)
+             scatter(centers_lists,limits=(im_height,im_width))
+             images_to_video('Frames', 'animation')
              return images, pallets, avgimages, avgpallets, indexes 
         vectors=image_compare_vect(cl1,cl2,indexes[i])
         vectortable.append(vectors)
@@ -315,6 +315,7 @@ def datasave(datacollection):
     except AttributeError:
         indexes=[pallet.startindex for pallet in datacollection]
         file='pallets.csv'
+        mean_free=[pallet.mean_free for pallet in datacollection]
     distances=[obj.avg_distances for obj in datacollection]
     speeds=[obj.avg_speeds for obj in datacollection]
     kinetic_energies=[obj.avg_kinetic_energies for obj in datacollection]
@@ -323,8 +324,8 @@ def datasave(datacollection):
         fulldata=np.array([t[:],distances[:],speeds[:],kinetic_energies[:],momentums[:]])
         labels=['t','distance','speed','kinetic energy','momentum']
     except NameError:
-        fulldata=np.array([indexes[:],distances[:],speeds[:],kinetic_energies[:],momentums[:]])
-        labels=['index','distance between t and t-1','speed','kinetic energy','momentum']
+        fulldata=np.array([indexes[:],distances[:],speeds[:],kinetic_energies[:],momentums[:], mean_free[:]])
+        labels=['index','distance between t and t-1','speed','kinetic energy','momentum', 'mean free path']
     dataset = pd.DataFrame()
     for i, data in enumerate(fulldata):
         dataset[f'{labels[i]}']=fulldata[i]
@@ -333,25 +334,28 @@ def datasave(datacollection):
         
 def setup():
     path=input('Imput the path to the folder with the images.')
+    path=path+'/*'
     if os.path.isdir(path)!=True:
         print('Invalid path')
         exit()
     shape=input('Which shape do you want to track (use _ instead of spaces)')
-    modelpath=f'Tensorflow/workspace/training_demo_{shape}/exported_models'
+    modelpath=f'Tensorflow/workspace/training_demo_{shape}/exported_models/my_model/saved_model'
     if os.path.isdir(modelpath)!=True:
-        print('Invalid path')
+        print('Shape not handeled')
         exit()
-    return path, modelpath
+    n=abs(int(input('how many pallets are there?')))
+    return path, modelpath, n
 
-path=("24_mm_25_particles/24_mm_25_partilces/*")
+path=("24_mm_50_particles_LRC/*")
 testpath=('Images/test/*')
 templatepath=("Images/template.jpg")
+n=int(input('how many pallets are there?'))
 start=t.monotonic()
 images=image_imports(path)
 shape=input('Which shape do you want to track (use _ instead of spaces)')
-modelpath=f'Tensorflow/workspace/training_demo_{shape}/exported_models'
-tables=image_compare(images, modelpath)
-coordslist=palletcoords(pallet_check(images, modelpath))
+modelpath=f'Tensorflow/workspace/training_demo_{shape}/exported-models/my_model/saved_model'
+tables=image_compare(images,n, modelpath,shape)
+coordslist=palletcoords(pallet_check(images, modelpath, shape))
 #origins=cluster_find(coordslist, n)
 image_folder = "Imageplots/*" 
 output_video_path = "output_video"  
