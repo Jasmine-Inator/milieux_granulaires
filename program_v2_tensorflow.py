@@ -7,7 +7,6 @@ import numpy as np
 import io
 from six import BytesIO
 from PIL import Image
-import cv2
 from six.moves.urllib.request import urlopen
 import matplotlib.pyplot as plt
 from object_detection.utils import label_map_util
@@ -21,6 +20,8 @@ import moviepy
 import math
 import pandas as pd
 import re
+import warnings
+warnings.filterwarnings("error")
 
 class imgdata:
     def __init__(self, positions, distances, vectors, timestamp, mass, framerate):
@@ -88,9 +89,10 @@ class palletdata:
                 free_path.append(freedist)
                 freedist=0
 
-def image_imports(path, rescale=True, scale=0, start=1): #use / in path
+def image_imports(path, templatepath, docrop=True, rescale=False, scale=5, start=1): #use / in path
     img_list=[]
     scale=int(scale)
+    template=Image.open(templatepath)
     files=glob.glob(path)
     filedict={}
     for file in tqdm(files, desc= 'sorting files'):
@@ -105,6 +107,10 @@ def image_imports(path, rescale=True, scale=0, start=1): #use / in path
     filelist=[filedict[label] for label in filelabel]
     for filename in tqdm(filelist, desc="Importing images"):
         im=Image.open(filename)
+        if  docrop:
+            im=crop(im,template)
+        if rescale:
+            im=im.reduce(scale)
         im=np.asarray(im)
         im=np.expand_dims(im, axis=0)
         img_list.append(im)
@@ -136,24 +142,126 @@ def pallet_check(images, modelpath, shape):
     return result_table, im_height, im_width
 
 
-def palletcoords(result_table, im_height, im_width, Threshold = 0.5):
+def palletcoords(result_table, im_height, im_width, n):
     result_table=result_table.copy()
-    Threshold = Threshold
     coords_table=[]
     for results in tqdm(result_table, desc='processing results'):
         coordslist=[]
         bboxes = results['detection_boxes'][0]
         bscores = results['detection_scores'][0]
+        scores=sorted(bscores)
+        scores=scores[:n]
+        Threshold=min(scores)
+        data={score:box for score, box in zip(bscores, bboxes)}
+        bsizes=[(box[3]-box[1])*(box[2]-box[0]) for box in bboxes]
         for idx, boxes in tqdm(enumerate(bboxes)):
-            y_min = int(bboxes[idx][0] * im_height)
-            x_min = int(bboxes[idx][1] * im_width)
-            y_max = int(bboxes[idx][2] * im_height)
-            x_max = int(bboxes[idx][3] * im_width)
-            center=((x_min+x_max)/2, (y_min+y_max)/2)
+            if bscores[idx] > Threshold:
+                y_min = int(bboxes[idx][0] * im_height)
+                x_min = int(bboxes[idx][1] * im_width)
+                y_max = int(bboxes[idx][2] * im_height)
+                x_max = int(bboxes[idx][3] * im_width)
+                center=np.array([int((x_min+x_max)/2), int((y_min+y_max)/2)])
             coordslist.append(center)
-        coordslist=np.sort(np.array(coordslist),0)
         coords_table.append(coordslist)
     return coords_table
+
+def lines(centers_lists, delta=5):
+    new_center_list=[]
+    for coordslist in centers_lists:
+        coordslist=axis_coords_sort(coordslist, 1)
+        new_image=[]
+        line=[]
+        for i, coords in enumerate(coordslist):
+            try:
+                check=coordslist[i][0]-coordslist[i+1][0]
+            except IndexError:
+                line.append(coords)
+                line=np.array(line)
+                new_image.append(line)
+                line=axis_coords_sort(line, 1)
+                line=[]
+                break
+            if abs(check) <= delta:
+                line.append(coords)
+            else:
+                line.append(coords)
+                line=np.array(line)
+                line=axis_coords_sort(line, 1)
+                new_image.append(line)
+                line=[]
+        new_center_list.append(new_image)
+    return new_center_list
+
+def deltas(array, diameter):
+    array=array.copy()
+    indexes=[0]
+    temp=0
+    for index in range(temp,len(array)):
+            if np.linalg.norm(array[temp]-array[index]) > diameter:
+                indexes.append(index)
+                temp=index+1
+    return indexes
+def distsort(array):
+    array=np.array(array[:])
+    dic={np.linalg.norm(coord): coord for coord in array}
+    keys=np.array(list(dic.keys()))
+    keys.sort()
+    sorted_coords=np.array([dic[key] for key in keys])
+    return sorted_coords 
+
+def immerg(image,diameter):
+    newimage=[]
+    for line in image:
+        newline=[]
+        sorted_coords=distsort(line)
+        indexes=deltas(sorted_coords, diameter)
+        split_line=[]
+        if len(indexes) < 1:
+            for i, index in enumerate(indexes):
+                try:
+                    split_line.append(np.array(sorted_coords[index:indexes[i+1]]))
+                except IndexError:
+                    break
+            for group in split_line:
+                groupx=flatten(group)[::2]
+                groupy=flatten(group)[1::2]
+                center=np.array([np.mean(groupx), np.mean(groupy)])
+                newline.append(center)
+                newimage.append(newline)
+        else:
+            linex=flatten(line)[::2]
+            liney=flatten(line)[1::2]
+            center=np.array([np.mean(linex), np.mean(liney)])
+            newimage.append(center)
+    return newimage
+def merge2(centers_lists, diameter, n, delta=5):
+    centers_lists=centers_lists.copy()
+    imlines=lines(centers_lists, delta=delta)
+    new_centers_lists=postmerge([immerg(image, diameter) for image in imlines], n)
+    return new_centers_lists
+
+def postmerge(centers_list, n):
+    centers_list=centers_list.copy()
+    new_centers_lists=[]
+    for image in centers_list:
+        newimage=[]
+        image=np.array(image)
+        split_image=np.array_split(image,n)
+        for group in split_image:
+            if len(group)>=1 and len(image)>n:
+                fgroup=flatten(group)
+                groupx=fgroup[::2]
+                groupy=fgroup[1::2]
+                center=np.array([np.mean(groupx), np.mean(groupy)])
+                newimage.append(center)
+            elif len(image)<=n:
+                newimage=image.copy()
+        new_centers_lists.append(np.array(newimage))
+    return new_centers_lists
+            
+        
+            
+                    
 
 
 def scatter(coords_table, dirname='Frames', limits=(350,350)):
@@ -208,6 +316,10 @@ def flatten(_list_):
 
 def axis_coords_sort(array, axis):
     tags=[i for i in range(len(array))]
+    try:
+        array=array.tolist()
+    except AttributeError:
+        pass
     adict={coord[axis]+10**(-len(str(len(array))))*tags[i]:coord[1-axis] for i, coord in enumerate(array)}
     keys=np.array(list(adict.keys()))
     keys.sort()
@@ -215,7 +327,7 @@ def axis_coords_sort(array, axis):
     return newarray
 
 
-def image_compare_dist(centers_lists, n):
+def image_compare_dist(centers_lists):
     n=len(centers_lists[0])
     centers_lists=centers_lists.copy()
     indextable=[np.array([i for i in range(n)])]
@@ -225,7 +337,6 @@ def image_compare_dist(centers_lists, n):
             cl1=centers
             cl2=centers_lists[i+1]
         except IndexError:
-            print(len(disttable), [len(dists) for dists in disttable])
             disttable=np.array(disttable)
             print('disttable ok')
             indextable=np.array(indextable)
@@ -256,24 +367,25 @@ def image_compare_vect(center_list_1, center_list_2, neighbor_indexes):
     return vectors
 
 
-def image_compare(images, n, modelpath, shape, mass=1, framerate=25):
+def image_compare(images, n, modelpath, shape, mass=1, framerate=25, radius=60):
+    diameter=2*radius
     n=n
     vectortable=[np.zeros((n,2))]
     images=images
     result_list, im_height, im_width=pallet_check(images, modelpath,shape)
-    centers_lists=palletcoords(result_list, im_height, im_width)
-    disttable, indexes=image_compare_dist(centers_lists, n)
+    centers_lists=merge2(palletcoords(result_list, im_height, im_width, n), diameter, n)
+    disttable, indexes=image_compare_dist(centers_lists)
     for i, centers in tqdm(enumerate(centers_lists), desc='comparing images'):
         try:
             cl1=centers
             cl2=centers_lists[i+1]
         except IndexError:
+             scatter(centers_lists,limits=(im_height,im_width))
              images=[imgdata(centers_lists[i],disttable[i],vectortable[i], (i+1)/25, mass, framerate) for i, indexlist in enumerate(indexes)]
              avgimages=datasave(images)
              indexes=np.transpose(indexes)
              pallets=[palletdata(indexlist,centers_lists ,disttable, vectortable, mass, framerate) for indexlist in indexes]
              avgpallets=datasave(pallets)
-             scatter(centers_lists,limits=(im_height,im_width))
              images_to_video('Frames', 'animation')
              return images, pallets, avgimages, avgpallets, indexes 
         vectors=image_compare_vect(cl1,cl2,indexes[i])
@@ -343,25 +455,29 @@ def setup():
     if os.path.isdir(modelpath)!=True:
         print('Shape not handeled')
         exit()
-    n=abs(int(input('how many pallets are there?')))
-    return path, modelpath, n
+    n=abs(int(input('How many pallets are there?')))
+    radius=abs(int(input('What is the radius of the pallets (in pixels)?')))
+    return path, modelpath, n, radius
 
-path=("24_mm_50_particles_LRC/*")
-testpath=('Images/test/*')
+#path, modelpath, n, radius = setup()
+path=("24_mm_25_particles/24_mm_25_particles/*")
 templatepath=("Images/template.jpg")
-n=int(input('how many pallets are there?'))
+#♣n=int(input('how many pallets are there?'))
+n=25
+radius=60
 start=t.monotonic()
-images=image_imports(path)
-shape=input('Which shape do you want to track (use _ instead of spaces)')
+images=image_imports(path, templatepath, rescale=False)
+#shape=input('Which shape do you want to track (use _ instead of spaces)')
+shape='circle'
 modelpath=f'Tensorflow/workspace/training_demo_{shape}/exported-models/my_model/saved_model'
-tables=image_compare(images,n, modelpath,shape)
-coordslist=palletcoords(pallet_check(images, modelpath, shape))
-#origins=cluster_find(coordslist, n)
-image_folder = "Imageplots/*" 
-output_video_path = "output_video"  
-image_folder = "Imageplots/*" 
-output_video_path = "output_video.mp4"  
-images_to_video(image_folder, output_video_path, fps=25)
+tables=image_compare(images,n, modelpath,shape, radius=radius)
+#result_list, im_height, im_width=pallet_check(images, modelpath,shape)
+#coordslist=(palletcoords(result_list, im_height, im_width, n))
+#scatter(coordslist, limits=(im_height,im_width))
+#dia=60
+#merged=merge2(coordslist, dia, n)
+#print(merged[1], [len(image) for image in merged] )
+#scatter(merged, limits=(im_height,im_width), dirname='Merged')
 end=t.monotonic()
 #disttable, vecttable=tables
 #print(len(disttable), len(vecttable), end-start)
