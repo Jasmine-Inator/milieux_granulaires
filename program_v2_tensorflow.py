@@ -114,6 +114,7 @@ def image_imports(path, templatepath, docrop=True, rescale=False, scale=5, start
         im=np.asarray(im)
         im=np.expand_dims(im, axis=0)
         img_list.append(im)
+    template.close()
     return img_list
 
 
@@ -167,101 +168,69 @@ def palletcoords(result_table, im_height, im_width, n):
 
 def lines(centers_lists, delta=5):
     new_center_list=[]
-    for coordslist in centers_lists:
+    for coordslist in  tqdm(centers_lists, desc='Making images into lines'):
         coordslist=axis_coords_sort(coordslist, 1)
         new_image=[]
+        yimage=[]
         line=[]
-        for i, coords in enumerate(coordslist):
+        for i, coords in tqdm(enumerate(coordslist), desc='Splitting image in lines'):
             try:
                 check=coordslist[i][0]-coordslist[i+1][0]
             except IndexError:
                 line.append(coords)
                 line=np.array(line)
-                new_image.append(line)
-                line=axis_coords_sort(line, 1)
+                line2=axis_coords_sort(line, 1)
+                new_image.append(line2)
+                yimage.append(line)
                 line=[]
                 break
-            if abs(check) <= delta:
+            if abs(check) < delta:
                 line.append(coords)
             else:
-                line.append(coords)
                 line=np.array(line)
-                line=axis_coords_sort(line, 1)
-                new_image.append(line)
+                line2=axis_coords_sort(line, 1)
+                new_image.append(line2)
+                yimage.append(line)
                 line=[]
+                line.append(coords)
         new_center_list.append(new_image)
     return new_center_list
 
-def deltas(array, diameter):
-    array=array.copy()
-    indexes=[0]
-    temp=0
-    for index in range(temp,len(array)):
-            if np.linalg.norm(array[temp]-array[index]) > diameter:
-                indexes.append(index)
-                temp=index+1
-    return indexes
-def distsort(array):
-    array=np.array(array[:])
-    dic={np.linalg.norm(coord): coord for coord in array}
-    keys=np.array(list(dic.keys()))
-    keys.sort()
-    sorted_coords=np.array([dic[key] for key in keys])
-    return sorted_coords 
 
-def immerg(image,diameter):
-    newimage=[]
-    for line in image:
-        newline=[]
-        sorted_coords=distsort(line)
-        indexes=deltas(sorted_coords, diameter)
-        split_line=[]
-        if len(indexes) < 1:
-            for i, index in enumerate(indexes):
-                try:
-                    split_line.append(np.array(sorted_coords[index:indexes[i+1]]))
-                except IndexError:
-                    break
-            for group in split_line:
-                groupx=flatten(group)[::2]
-                groupy=flatten(group)[1::2]
-                center=np.array([np.mean(groupx), np.mean(groupy)])
-                newline.append(center)
-                newimage.append(newline)
-        else:
-            linex=flatten(line)[::2]
-            liney=flatten(line)[1::2]
-            center=np.array([np.mean(linex), np.mean(liney)])
-            newimage.append(center)
-    return newimage
-def merge2(centers_lists, diameter, n, delta=5):
+
+
+def merge(centers_lists, diameter, n, delta=5):
     centers_lists=centers_lists.copy()
+    new_centers_lists=[]
     imlines=lines(centers_lists, delta=delta)
-    new_centers_lists=postmerge([immerg(image, diameter) for image in imlines], n)
+    for image in tqdm(imlines, desc='Merging centers'):
+        newimage=[]
+        for line in imlines:
+            split_line=[]
+            xs=flatten(line)[::2]
+            temp=0
+            for i, x in enumerate(xs):
+                try:
+                    check=xs[i+1]
+                except IndexError:
+                    split_line.append(line[temp:i])
+                if np.linalg.norm(x-xs[temp])>diameter:
+                    split_line.append(line[temp:i])
+                    temp=i+1
+            print([len(group) for group in split_line], len(split_line))
+            exit()
+            for group in split_line:
+                if len(group) != 0:
+                    fgroup=flatten(group)
+                    groupx=fgroup[::2]
+                    groupy=fgroup[1::2]
+                    center=np.array([np.mean(groupx), np.mean(groupy)])
+                    newimage.append(center)
+        new_centers_lists.append(newimage)
+    print([len(newimage) for newimage in new_centers_lists])
+    exit()
     return new_centers_lists
 
-def postmerge(centers_list, n):
-    centers_list=centers_list.copy()
-    new_centers_lists=[]
-    for image in centers_list:
-        newimage=[]
-        image=np.array(image)
-        split_image=np.array_split(image,n)
-        for group in split_image:
-            if len(group)>=1 and len(image)>n:
-                fgroup=flatten(group)
-                groupx=fgroup[::2]
-                groupy=fgroup[1::2]
-                center=np.array([np.mean(groupx), np.mean(groupy)])
-                newimage.append(center)
-            elif len(image)<=n:
-                newimage=image.copy()
-        new_centers_lists.append(np.array(newimage))
-    return new_centers_lists
-            
-        
-            
-                    
 
 
 def scatter(coords_table, dirname='Frames', limits=(350,350)):
@@ -337,9 +306,9 @@ def image_compare_dist(centers_lists):
             cl1=centers
             cl2=centers_lists[i+1]
         except IndexError:
-            disttable=np.array(disttable)
+            disttable=disttable
             print('disttable ok')
-            indextable=np.array(indextable)
+            indextable=indextable
             print('indextable ok')
             return disttable, indextable
         center_list_1=np.array(cl1)
@@ -351,8 +320,8 @@ def image_compare_dist(centers_lists):
             table=table.tolist()
             distances.append(min(table))
             indexes.append(table.index(min(table)))
-        disttable.append(np.array(distances))
-        indextable.append(np.array(indexes))
+        disttable.append(distances)
+        indextable.append(indexes)
 
 
 def image_compare_vect(center_list_1, center_list_2, neighbor_indexes):
@@ -360,10 +329,12 @@ def image_compare_vect(center_list_1, center_list_2, neighbor_indexes):
     center_list_2=np.array(center_list_2)
     vectors=[]
     for i, point in tqdm(enumerate(center_list_1), desc='finding position vectors'):
-        index=neighbor_indexes[i]
-        neighbor=center_list_2[index]
-        vectors.append(neighbor-point)
-    vectors=np.array(vectors)
+        try: 
+            index=neighbor_indexes[i]
+            neighbor=center_list_2[index]
+            vectors.append(neighbor-point)
+        except IndexError:
+            return vectors
     return vectors
 
 
@@ -373,7 +344,7 @@ def image_compare(images, n, modelpath, shape, mass=1, framerate=25, radius=60):
     vectortable=[np.zeros((n,2))]
     images=images
     result_list, im_height, im_width=pallet_check(images, modelpath,shape)
-    centers_lists=merge2(palletcoords(result_list, im_height, im_width, n), diameter, n)
+    centers_lists=merge(palletcoords(result_list, im_height, im_width, n), diameter, n)
     disttable, indexes=image_compare_dist(centers_lists)
     for i, centers in tqdm(enumerate(centers_lists), desc='comparing images'):
         try:
@@ -461,6 +432,7 @@ def setup():
 
 #path, modelpath, n, radius = setup()
 path=("24_mm_25_particles/24_mm_25_particles/*")
+testpath=("Images/test/*")
 templatepath=("Images/template.jpg")
 #♣n=int(input('how many pallets are there?'))
 n=25
