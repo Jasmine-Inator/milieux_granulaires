@@ -23,7 +23,6 @@ import re
 import warnings
 from sklearn.cluster import AgglomerativeClustering
 warnings.filterwarnings("error")
-from object_detection.utils import visualization_utils 
 
 
 class imgdata:
@@ -96,7 +95,7 @@ def image_imports(path, templatepath, docrop=True, rescale=False, greyscale=Fals
     img_list=[]
     scale=int(scale)
     template=Image.open(templatepath)
-    files=glob.glob(path)
+    files=glob.glob(testpath)
     filedict={}
     for file in tqdm(files, desc= 'sorting files'):
         file=Path(file)
@@ -138,7 +137,8 @@ def crop(image,template, yoffset=25, xoffset=-15):
     return image
 
 # keep working with tensorflow https://www.tensorflow.org/hub/tutorials/tf2_object_detection?hl=en
-def pallet_check(images, modelpath, shape, show_boxes=False, save_dir='Detected'):
+
+def pallet_check(images, modelpath, shape, show_boxes=True, save_dir='Detected'):
     model = tf.saved_model.load(modelpath)
     images = images.copy()
     im_height, im_width = images[0].shape[1:-1]
@@ -418,7 +418,7 @@ def image_compare(images, n, modelpath, shape, mass=1, framerate=25, radius=60):
     images=images
     result_list, im_height, im_width=pallet_check(images, modelpath,shape)
     centers_lists=aggmerge(palletcoords(result_list, im_height, im_width, n), n)
-    disttable, indexes=image_compare_dist(centers_lists)
+    disttable, indexes=image_compare_dist(centers_lists,n)
     for i, centers in tqdm(enumerate(centers_lists), desc='comparing images'):
         try:
             cl1=centers
@@ -432,10 +432,12 @@ def image_compare(images, n, modelpath, shape, mass=1, framerate=25, radius=60):
              positions=[pallet.positions for pallet in pallets] 
              scatter(positions, limits=(im_height,im_width), dirname='Pallets', track=True)
              avgpallets=datasave(pallets)
-             images_to_video('Frames', 'animation')
+             #images_to_video('Frames', 'animation')
              return images, pallets, avgimages, avgpallets, indexes 
         vectors=image_compare_vect(cl1,cl2,indexes[i])
+        vectortable=vectortable.tolist()
         vectortable.append(vectors)
+        vectortable=np.array(vectortable)
 
 def images_to_video(image_folder,dirname,vidname='animation', fps=25):
     image_files=image_imports(image_folder, None, start=0, rescale=False)
