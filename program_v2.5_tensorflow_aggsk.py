@@ -282,7 +282,7 @@ def aggmerge(coords_table, n):
         centers_lists.append(centers)
     return centers_lists
 
-def scatter(coords_table, dirname='Frames', limits=(350,350)):
+def scatter(coords_table, dirname='Frames', limits=(350,350), track=False):
     coords_table=coords_table.copy()
     directory_name=dirname
     width, height=limits
@@ -303,8 +303,9 @@ def scatter(coords_table, dirname='Frames', limits=(350,350)):
         ax.set_aspect('equal', adjustable='box')
         plt.xlim(0,width)
         plt.ylim(0,height)
-        #colors = plt.cm.rainbow(np.linspace(0, 1, len(x)))
-        img_plot = plt.scatter(x,y,s=2, marker ='+')#, c=colors)
+        img_plot = plt.scatter(x,y,s=2, marker ='+')
+        if track:
+            plt.plot(x,y)
         plots.append(img_plot)
         figname='fig'+str(i)
         fig.savefig(f"{directory_name}/{figname}.png")
@@ -345,8 +346,7 @@ def axis_coords_sort(array, axis):
     return newarray
 
 
-def image_compare_dist(centers_lists):
-    n=len(centers_lists[0])
+def image_compare_dist(centers_lists, n, scale=11):
     centers_lists=centers_lists.copy()
     indextable=[np.array([i for i in range(n)])]
     disttable=[np.zeros(n)]
@@ -355,9 +355,9 @@ def image_compare_dist(centers_lists):
             cl1=centers
             cl2=centers_lists[i+1]
         except IndexError:
-            disttable=disttable
+            disttable=np.array(disttable)
             print('disttable ok')
-            indextable=indextable
+            indextable=np.array(indextable)
             print('indextable ok')
             return disttable, indextable
         center_list_1=np.array(cl1)
@@ -367,10 +367,10 @@ def image_compare_dist(centers_lists):
         indexes=[]
         for table in distancestable:
             table=table.tolist()
-            distances.append(min(table))
+            distances.append(scale*min(table))
             indexes.append(table.index(min(table)))
-        disttable.append(distances)
-        indextable.append(indexes)
+        disttable.append(np.array(distances))
+        indextable.append(np.array(indexes))
 
 
 def image_compare_vect(center_list_1, center_list_2, neighbor_indexes):
@@ -378,24 +378,20 @@ def image_compare_vect(center_list_1, center_list_2, neighbor_indexes):
     center_list_2=np.array(center_list_2)
     vectors=[]
     for i, point in tqdm(enumerate(center_list_1), desc='finding position vectors'):
-        try: 
-            index=neighbor_indexes[i]
-            neighbor=center_list_2[index]
-            vectors.append(neighbor-point)
-        except IndexError:
-            return vectors
+        index=neighbor_indexes[i]
+        neighbor=center_list_2[index]
+        vectors.append(neighbor-point)
+    vectors=np.array(vectors)
     return vectors
 
 
 def image_compare(images, n, modelpath, shape, mass=1, framerate=25, radius=60):
     diameter=2*radius
     n=n
-    vectortable=[np.zeros((n,2))]
+    vectortable=np.array([np.zeros((n,2))])
     images=images
     result_list, im_height, im_width=pallet_check(images, modelpath,shape)
     centers_lists=aggmerge(palletcoords(result_list, im_height, im_width, n), n)
-    scatter(centers_lists, limits=(im_height, im_width), dirname='Test_aggmerge')
-    exit()
     disttable, indexes=image_compare_dist(centers_lists)
     for i, centers in tqdm(enumerate(centers_lists), desc='comparing images'):
         try:
@@ -406,7 +402,9 @@ def image_compare(images, n, modelpath, shape, mass=1, framerate=25, radius=60):
              images=[imgdata(centers_lists[i],disttable[i],vectortable[i], (i+1)/25, mass, framerate) for i, indexlist in enumerate(indexes)]
              avgimages=datasave(images)
              indexes=np.transpose(indexes)
-             pallets=[palletdata(indexlist,centers_lists ,disttable, vectortable, mass, framerate) for indexlist in indexes]
+             pallets=[palletdata(indexlist,centers_lists ,disttable, vectortable, mass, framerate) for indexlist in indexes] 
+             positions=[pallet.positions for pallet in pallets] 
+             scatter(positions, limits=(im_height,im_width), dirname='Pallets', track=True)
              avgpallets=datasave(pallets)
              images_to_video('Frames', 'animation')
              return images, pallets, avgimages, avgpallets, indexes 
@@ -414,7 +412,7 @@ def image_compare(images, n, modelpath, shape, mass=1, framerate=25, radius=60):
         vectortable.append(vectors)
 
 def images_to_video(image_folder,dirname,vidname='animation', fps=25):
-    image_files=image_imports(image_folder, None, anim=True, start=0, rescale=False)
+    image_files=image_imports(image_folder, None, start=0, rescale=False)
     #images.sort() 
     output_video_path=f'{dirname}'
     try:
@@ -482,14 +480,14 @@ def setup():
     return path, modelpath, n, radius
 
 #path, modelpath, n, radius = setup()
-path=("24_mm_25_particles/24_mm_25_particles/*")
+path=("24_mm_50_particles_LRC/*")
 testpath=("Images/test/*")
 templatepath=("Images/template.jpg")
 #♣n=int(input('how many pallets are there?'))
-n=25
+n=50
 radius=60
 start=t.monotonic()
-images=image_imports(path, templatepath, rescale=False)
+images=image_imports(path, templatepath, rescale=False, docrop=False)
 #shape=input('Which shape do you want to track (use _ instead of spaces)')
 shape='circle'
 modelpath=f'Tensorflow/workspace/training_demo_{shape}/exported-models/my_model/saved_model'
