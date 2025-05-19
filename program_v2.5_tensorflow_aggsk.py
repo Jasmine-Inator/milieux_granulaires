@@ -21,6 +21,7 @@ import math
 import pandas as pd
 import re
 import warnings
+from sklearn.cluster import AgglomerativeClustering
 warnings.filterwarnings("error")
 
 class imgdata:
@@ -178,8 +179,6 @@ def palletcoords(result_table, im_height, im_width, n):
         box_table.append(boxlist)
         coords_table.append(coordslist)
         #print([len(coordslist) for coordslist in coords_table])
-        scatter(coords_table, limits=(im_height, im_width))
-        exit()
     return coords_table
 
 def lines(centers_lists, delta=5):
@@ -257,7 +256,31 @@ def merge(centers_lists, diameter, n, delta=5):
     exit()
     return new_centers_lists
 
-
+def aggmerge(coords_table, n):
+    coords_table=coords_table.copy()
+    centers_lists=[]
+    for coordlist in tqdm(coords_table, desc='Merging excess points'):
+        tags=[i for i in range(len(coordlist))]
+        agg = AgglomerativeClustering(n_clusters=n)
+        labels = agg.fit_predict(coordlist)
+        data={labels[i]+10**(-len(str(len(coordlist))))*tags[i]:coords for i, coords in enumerate(coordlist)}
+        groups=[]
+        for i in range(n):
+            group=[]
+            for label in data:
+                if int(label)==i:
+                    group.append(data[label])
+            groups.append(np.array(group))
+        centers=[]
+        for group in groups:
+            if len(group) != 0:
+                fgroup=flatten(group)
+                groupx=fgroup[::2]
+                groupy=fgroup[1::2]
+                center=np.array([np.mean(groupx), np.mean(groupy)])
+                centers.append(center)
+        centers_lists.append(centers)
+    return centers_lists
 
 def scatter(coords_table, dirname='Frames', limits=(350,350)):
     coords_table=coords_table.copy()
@@ -370,7 +393,9 @@ def image_compare(images, n, modelpath, shape, mass=1, framerate=25, radius=60):
     vectortable=[np.zeros((n,2))]
     images=images
     result_list, im_height, im_width=pallet_check(images, modelpath,shape)
-    centers_lists=miscmerge(palletcoords(result_list, im_height, im_width, n), n)
+    centers_lists=aggmerge(palletcoords(result_list, im_height, im_width, n), n)
+    scatter(centers_lists, limits=(im_height, im_width), dirname='Test_aggmerge')
+    exit()
     disttable, indexes=image_compare_dist(centers_lists)
     for i, centers in tqdm(enumerate(centers_lists), desc='comparing images'):
         try:
