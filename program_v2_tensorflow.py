@@ -111,6 +111,11 @@ def image_imports(path, templatepath, docrop=True, rescale=False, scale=5, start
             im=crop(im,template)
         if rescale:
             im=im.reduce(scale)
+        img=[]
+        for pixel in im.getdata():
+            grey=int((pixel[0]+pixel[1]+pixel[2])/3)
+            img.append((grey,grey,grey))
+        im.putdata(img)
         im=np.asarray(im)
         im=np.expand_dims(im, axis=0)
         img_list.append(im)
@@ -133,7 +138,6 @@ def pallet_check(images, modelpath, shape):
     model=tf.saved_model.load(modelpath)
     images=images.copy()
     im_height, im_width =images[0].shape[1:-1]
-    category_index = f"Tensorflow/workspace/training_demo_{shape}/annotations/label_map.pbtxt"
     convimages=[tf.image.convert_image_dtype(image, tf.uint8) for image in tqdm(images, desc='finishing to open images')]
     result_table=[]
     for im in tqdm(convimages, desc='checking for pallets'):
@@ -143,32 +147,39 @@ def pallet_check(images, modelpath, shape):
     return result_table, im_height, im_width
 
 
+
 def palletcoords(result_table, im_height, im_width, n):
     result_table=result_table.copy()
     coords_table=[]
-    for results in tqdm(result_table, desc='processing results'):
+    for i, results in tqdm(enumerate(result_table), desc='processing results'):
         coordslist=[]
         bboxes = results['detection_boxes'][0]
         bscores = results['detection_scores'][0]
         scores=sorted(bscores)
-        scores=scores[:n]
+        scores=set(scores[len(scores)-n:])
         Threshold=min(scores)
-        data={score:box for score, box in zip(bscores, bboxes)}
+        #data={complex(score,i):box for i, (score, box) in enumerate(zip(bscores, bboxes))}
         bsizes=[(box[3]-box[1])*(box[2]-box[0]) for box in bboxes]
-        for idx, boxes in tqdm(enumerate(bboxes)):
-            if bscores[idx] > Threshold:
-                y_min = int(bboxes[idx][0] * im_height)
-                x_min = int(bboxes[idx][1] * im_width)
-                y_max = int(bboxes[idx][2] * im_height)
-                x_max = int(bboxes[idx][3] * im_width)
-                center=np.array([int((x_min+x_max)/2), int((y_min+y_max)/2)])
+        sizes=sorted(bsizes)
+        sizes=set(sizes[len(sizes)-n:])
+        minsize=min(sizes)
+        for idx, box in tqdm(enumerate(bboxes)):
+            #if bsizes[idx] >= minsize:
+            y_min = int(box[0] * im_height)
+            x_min = int(box[1] * im_width)
+            y_max = int(box[2] * im_height)
+            x_max = int(box[3] * im_width)
+            center=np.array([int((x_min+x_max)/2), int((y_min+y_max)/2)])
             coordslist.append(center)
         coords_table.append(coordslist)
+        #print([len(coordslist) for coordslist in coords_table])
+        #scatter(coords_table, limits=(im_height, im_width))
+        #exit()
     return coords_table
 
 def lines(centers_lists, delta=5):
     new_center_list=[]
-    for coordslist in  tqdm(centers_lists, desc='Making images into lines'):
+    for coordslist in  tqdm(centers_lists, desc='Splitting images in lines'):
         coordslist=axis_coords_sort(coordslist, 1)
         new_image=[]
         yimage=[]
@@ -196,8 +207,20 @@ def lines(centers_lists, delta=5):
         new_center_list.append(new_image)
     return new_center_list
 
-
-
+def miscmerge(centers_lists,n):
+    new_centers_lists=[]
+    for list_ in centers_lists:
+        list_=axis_coords_sort(list_, 0)
+        newlist=[]
+        split_list=np.array_split(list_, n)
+        for group in split_list:
+            fgroup=flatten(group)
+            xgroup=fgroup[::2]
+            ygroup=fgroup[1::2]
+            center=np.array([np.mean(xgroup), np.mean(ygroup)])
+            newlist.append(center)
+        new_centers_lists.append(newlist)
+    return new_centers_lists
 
 def merge(centers_lists, diameter, n, delta=5):
     centers_lists=centers_lists.copy()
@@ -217,8 +240,6 @@ def merge(centers_lists, diameter, n, delta=5):
                 if np.linalg.norm(x-xs[temp])>diameter:
                     split_line.append(line[temp:i])
                     temp=i+1
-            print([len(group) for group in split_line], len(split_line))
-            exit()
             for group in split_line:
                 if len(group) != 0:
                     fgroup=flatten(group)
@@ -344,7 +365,7 @@ def image_compare(images, n, modelpath, shape, mass=1, framerate=25, radius=60):
     vectortable=[np.zeros((n,2))]
     images=images
     result_list, im_height, im_width=pallet_check(images, modelpath,shape)
-    centers_lists=merge(palletcoords(result_list, im_height, im_width, n), diameter, n)
+    centers_lists=miscmerge(palletcoords(result_list, im_height, im_width, n), n)
     disttable, indexes=image_compare_dist(centers_lists)
     for i, centers in tqdm(enumerate(centers_lists), desc='comparing images'):
         try:
