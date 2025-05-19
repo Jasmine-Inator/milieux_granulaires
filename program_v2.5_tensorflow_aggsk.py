@@ -154,7 +154,6 @@ def pallet_check(images, modelpath, shape, show_boxes=True, save_dir='Detected')
         result_table.append(result)
 
         if show_boxes:
-            # Show boxes on picture
             image_np_with_detections = im[0].numpy().copy()
             viz_utils.visualize_boxes_and_labels_on_image_array(
                 image_np_with_detections,
@@ -164,10 +163,9 @@ def pallet_check(images, modelpath, shape, show_boxes=True, save_dir='Detected')
                 category_index={},  
                 use_normalized_coordinates=True,
                 max_boxes_to_draw=200,
-                min_score_thresh=0.3,
+                min_score_thresh=0.35,
                 agnostic_mode=True
             )
-            # Save
             out_path = os.path.join(save_dir, f"detection_{i:03}.jpg")
             Image.fromarray(image_np_with_detections).save(out_path)
 
@@ -194,118 +192,46 @@ def palletcoords(result_table, im_height, im_width, n):
         sizes=set(sizes[len(sizes)-n:])
         minsize=min(sizes)
         for idx, box in tqdm(enumerate(bboxes)):
-            #if bsizes[idx] >= minsize:
-            y_min = int(box[0] * im_height)
-            x_min = int(box[1] * im_width)
-            y_max = int(box[2] * im_height)
-            x_max = int(box[3] * im_width)
-            center=np.array([int((x_min+x_max)/2), int((y_min+y_max)/2)])
-            coordslist.append(center)
-            boxlist.append(box)
+                if bscores[idx] >= 0.35:
+                    y_min = int(box[0] * im_height)
+                    x_min = int(box[1] * im_width)
+                    y_max = int(box[2] * im_height)
+                    x_max = int(box[3] * im_width)
+                    center=np.array([int((x_min+x_max)/2), int((y_min+y_max)/2)])
+                    coordslist.append(center)
+                    boxlist.append(box)
         box_table.append(boxlist)
         coords_table.append(coordslist)
-        #print([len(coordslist) for coordslist in coords_table])
     return coords_table
 
-def lines(centers_lists, delta=5):
-    new_center_list=[]
-    for coordslist in  tqdm(centers_lists, desc='Splitting images in lines'):
-        coordslist=axis_coords_sort(coordslist, 1)
-        new_image=[]
-        yimage=[]
-        line=[]
-        for i, coords in tqdm(enumerate(coordslist), desc='Splitting image in lines'):
-            try:
-                check=coordslist[i][0]-coordslist[i+1][0]
-            except IndexError:
-                line.append(coords)
-                line=np.array(line)
-                line2=axis_coords_sort(line, 1)
-                new_image.append(line2)
-                yimage.append(line)
-                line=[]
-                break
-            if abs(check) < delta:
-                line.append(coords)
-            else:
-                line=np.array(line)
-                line2=axis_coords_sort(line, 1)
-                new_image.append(line2)
-                yimage.append(line)
-                line=[]
-                line.append(coords)
-        new_center_list.append(new_image)
-    return new_center_list
 
-def miscmerge(centers_lists,n):
-    new_centers_lists=[]
-    for list_ in centers_lists:
-        list_=axis_coords_sort(list_, 0)
-        newlist=[]
-        split_list=np.array_split(list_, n)
-        for group in split_list:
-            fgroup=flatten(group)
-            xgroup=fgroup[::2]
-            ygroup=fgroup[1::2]
-            center=np.array([np.mean(xgroup), np.mean(ygroup)])
-            newlist.append(center)
-        new_centers_lists.append(newlist)
-    return new_centers_lists
 
-def merge(centers_lists, diameter, n, delta=5):
-    centers_lists=centers_lists.copy()
-    new_centers_lists=[]
-    imlines=lines(centers_lists, delta=delta)
-    for image in tqdm(imlines, desc='Merging centers'):
-        newimage=[]
-        for line in imlines:
-            split_line=[]
-            xs=flatten(line)[::2]
-            temp=0
-            for i, x in enumerate(xs):
-                try:
-                    check=xs[i+1]
-                except IndexError:
-                    split_line.append(line[temp:i])
-                if np.linalg.norm(x-xs[temp])>diameter:
-                    split_line.append(line[temp:i])
-                    temp=i+1
-            for group in split_line:
+def aggmerge(coords_table, n, r):
+    coords_table=coords_table.copy()
+    centers_lists=[]
+    for coordlist in tqdm(coords_table, desc='Merging excess points'):
+        if len(coordlist)>n:
+            tags=[i for i in range(len(coordlist))]
+            agg = AgglomerativeClustering(n_clusters=None, compute_full_tree=True, distance_threshold=r)
+            labels = agg.fit_predict(coordlist)
+            data={labels[i]+10**(-len(str(len(coordlist))))*tags[i]:coords for i, coords in enumerate(coordlist)}
+            groups=[]
+            for i in range(n):
+                group=[]
+                for label in data:
+                    if int(label)==i:
+                        group.append(data[label])
+                groups.append(np.array(group))
+            centers=[]
+            for group in groups:
                 if len(group) != 0:
                     fgroup=flatten(group)
                     groupx=fgroup[::2]
                     groupy=fgroup[1::2]
                     center=np.array([np.mean(groupx), np.mean(groupy)])
-                    newimage.append(center)
-        new_centers_lists.append(newimage)
-    print([len(newimage) for newimage in new_centers_lists])
-    exit()
-    return new_centers_lists
-
-def aggmerge(coords_table, n):
-    coords_table=coords_table.copy()
-    centers_lists=[]
-    for coordlist in tqdm(coords_table, desc='Merging excess points'):
-        tags=[i for i in range(len(coordlist))]
-        agg = AgglomerativeClustering(n_clusters=n)
-        labels = agg.fit_predict(coordlist)
-        data={labels[i]+10**(-len(str(len(coordlist))))*tags[i]:coords for i, coords in enumerate(coordlist)}
-        groups=[]
-        for i in range(n):
-            group=[]
-            for label in data:
-                if int(label)==i:
-                    group.append(data[label])
-            groups.append(np.array(group))
-        centers=[]
-        for group in groups:
-            if len(group) != 0:
-                fgroup=flatten(group)
-                groupx=fgroup[::2]
-                groupy=fgroup[1::2]
-                center=np.array([np.mean(groupx), np.mean(groupy)])
-                centers.append(center)
-        centers_lists.append(centers)
+                    centers.append(center)
+            centers_lists.append(centers)
+        centers_lists.append(coordlist)
     return centers_lists
 
 def scatter(coords_table, dirname='Frames', limits=(350,350), track=False):
@@ -331,7 +257,7 @@ def scatter(coords_table, dirname='Frames', limits=(350,350), track=False):
         plt.ylim(0,height)
         img_plot = plt.scatter(x,y,s=2, marker ='+')
         if track:
-            plt.plot(x,y)
+            plt.plot(x,y, linewidth=1.5)
         plots.append(img_plot)
         figname='fig'+str(i)
         fig.savefig(f"{directory_name}/{figname}.png")
@@ -417,21 +343,22 @@ def image_compare(images, n, modelpath, shape, mass=1, framerate=25, radius=60):
     vectortable=np.array([np.zeros((n,2))])
     images=images
     result_list, im_height, im_width=pallet_check(images, modelpath,shape)
-    centers_lists=aggmerge(palletcoords(result_list, im_height, im_width, n), n)
+    centers_lists=aggmerge(palletcoords(result_list, im_height, im_width, n), n, radius)
     disttable, indexes=image_compare_dist(centers_lists,n)
     for i, centers in tqdm(enumerate(centers_lists), desc='comparing images'):
         try:
             cl1=centers
             cl2=centers_lists[i+1]
         except IndexError:
-             scatter(centers_lists,limits=(im_height,im_width))
+             scatter(centers_lists,limits=(im_width,im_height))
              images=[imgdata(centers_lists[i],disttable[i],vectortable[i], (i+1)/25, mass, framerate) for i, indexlist in enumerate(indexes)]
              avgimages=datasave(images)
              indexes=np.transpose(indexes)
              pallets=[palletdata(indexlist,centers_lists ,disttable, vectortable, mass, framerate) for indexlist in indexes] 
              positions=[pallet.positions for pallet in pallets] 
-             scatter(positions, limits=(im_height,im_width), dirname='Pallets', track=True)
+             scatter(positions, limits=(im_width,im_height), dirname='Pallets', track=True)
              avgpallets=datasave(pallets)
+             print(positions)
              #images_to_video('Frames', 'animation')
              return images, pallets, avgimages, avgpallets, indexes 
         vectors=image_compare_vect(cl1,cl2,indexes[i])
@@ -508,14 +435,14 @@ def setup():
     return path, modelpath, n, radius
 
 #path, modelpath, n, radius = setup()
-path=("24_mm_50_particles_LRC/*")
+path=("24_mm_25_particles/24_mm_25_particles/*")
 testpath=("Images/test/*")
 templatepath=("Images/template.jpg")
 #♣n=int(input('how many pallets are there?'))
-n=50
+n=25
 radius=60
 start=t.monotonic()
-images=image_imports(path, templatepath, rescale=False, docrop=False)
+images=image_imports(testpath, templatepath, rescale=False, docrop=True)
 #shape=input('Which shape do you want to track (use _ instead of spaces)')
 shape='circle'
 modelpath=f'Tensorflow/workspace/training_demo_{shape}/exported-models/my_model/saved_model'

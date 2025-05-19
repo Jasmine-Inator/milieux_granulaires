@@ -105,7 +105,6 @@ def image_imports(path, templatepath, docrop=True, rescale=True, scale=30, start
             im=crop(im,template)
         if rescale:
             im=im.reduce(scale)
-        im=im.rotate(-90)
         img_list.append(im)
     return img_list
 
@@ -131,6 +130,7 @@ def white_check(images, save=True):
     if save:
         directory_name='Imageplots'
         scatter(coords_list, directory_name, limits=(width, height))
+        exit()
     return coords_list
 
 def scatter(coords_table, dirname='Frames', limits=(350,350)):
@@ -338,7 +338,7 @@ framerate=25
 #width, height=Image.open('Images/pallet.jpg').size
 scale=5
 start=t.monotonic()
-images=image_imports(path,templatepath, docrop=False, scale=scale)
+images=image_imports(testpath,templatepath, docrop=True, rescale=False)
 n=20
 mass=1
 #tables=image_compare(images, n, mass, framerate)
