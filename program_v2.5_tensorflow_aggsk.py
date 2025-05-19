@@ -23,6 +23,8 @@ import re
 import warnings
 from sklearn.cluster import AgglomerativeClustering
 warnings.filterwarnings("error")
+from object_detection.utils import visualization_utils 
+
 
 class imgdata:
     def __init__(self, positions, distances, vectors, timestamp, mass, framerate):
@@ -147,6 +149,41 @@ def pallet_check(images, modelpath, shape):
         result = {key:value.numpy() for key,value in detections.items()}
         result_table.append(result)
     return result_table, im_height, im_width
+def pallet_check(images, modelpath, shape, show_boxes=False, save_dir='Detected'):
+    model = tf.saved_model.load(modelpath)
+    images = images.copy()
+    im_height, im_width = images[0].shape[1:-1]
+    convimages = [tf.image.convert_image_dtype(image, tf.uint8) for image in tqdm(images, desc='finishing to open images')]
+    result_table = []
+
+    if show_boxes:
+        os.makedirs(save_dir, exist_ok=True)
+
+    for i, im in tqdm(enumerate(convimages), desc='checking for pallets'):
+        detections = model(im)
+        result = {key: value.numpy() for key, value in detections.items()}
+        result_table.append(result)
+
+        if show_boxes:
+            # Show boxes on picture
+            image_np_with_detections = im[0].numpy().copy()
+            viz_utils.visualize_boxes_and_labels_on_image_array(
+                image_np_with_detections,
+                result['detection_boxes'][0],
+                result['detection_classes'][0].astype(np.int32),
+                result['detection_scores'][0],
+                category_index={},  
+                use_normalized_coordinates=True,
+                max_boxes_to_draw=200,
+                min_score_thresh=0.3,
+                agnostic_mode=True
+            )
+            # Save
+            out_path = os.path.join(save_dir, f"detection_{i:03}.jpg")
+            Image.fromarray(image_np_with_detections).save(out_path)
+
+    return result_table, im_height, im_width
+
 
 
 
