@@ -138,17 +138,6 @@ def crop(image,template, yoffset=25, xoffset=-15):
     return image
 
 # keep working with tensorflow https://www.tensorflow.org/hub/tutorials/tf2_object_detection?hl=en
-def pallet_check(images, modelpath, shape):
-    model=tf.saved_model.load(modelpath)
-    images=images.copy()
-    im_height, im_width =images[0].shape[1:-1]
-    convimages=[tf.image.convert_image_dtype(image, tf.uint8) for image in tqdm(images, desc='finishing to open images')]
-    result_table=[]
-    for im in tqdm(convimages, desc='checking for pallets'):
-        detections = model(im)
-        result = {key:value.numpy() for key,value in detections.items()}
-        result_table.append(result)
-    return result_table, im_height, im_width
 def pallet_check(images, modelpath, shape, show_boxes=False, save_dir='Detected'):
     model = tf.saved_model.load(modelpath)
     images = images.copy()
