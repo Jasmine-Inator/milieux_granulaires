@@ -393,10 +393,9 @@ def palletsave(pallets):
             dataset[f'{labels[j]}']=fulldata[j]
         dataset.to_csv(f'saved_data/pallets/{file}')
         sets.append(dataset)
-    print(sets)
     return sets
         
-path=("Images/test/*")
+path=("24_mm_25_particles/24_mm_25_particles/*")
 templatepath=("Images/template.jpg")
 n=25
 images=image_imports(path, templatepath, rescale=False, docrop=True)
