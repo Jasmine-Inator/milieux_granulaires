@@ -1,6 +1,4 @@
 from tqdm import tqdm
-#from celluloid import Camera
-import time as t
 import glob
 import os
 import numpy as np
@@ -16,7 +14,6 @@ import scipy as sp
 import itertools as it
 import tensorflow as tf
 from pathlib import Path
-import moviepy
 import math
 import pandas as pd
 import re
@@ -95,7 +92,7 @@ def image_imports(path, templatepath, docrop=True, rescale=False, greyscale=Fals
     img_list=[]
     scale=int(scale)
     template=Image.open(templatepath)
-    files=glob.glob(testpath)
+    files=glob.glob(path)
     filedict={}
     for file in tqdm(files, desc= 'sorting files'):
         file=Path(file)
@@ -183,14 +180,6 @@ def palletcoords(result_table, im_height, im_width, n):
         coordslist=[]
         bboxes = results['detection_boxes'][0]
         bscores = results['detection_scores'][0]
-        scores=sorted(bscores)
-        scores=set(scores[len(scores)-n:])
-        Threshold=min(scores)
-        #data={complex(score,i):box for i, (score, box) in enumerate(zip(bscores, bboxes))}
-        bsizes=[(box[3]-box[1])*(box[2]-box[0]) for box in bboxes]
-        sizes=sorted(bsizes)
-        sizes=set(sizes[len(sizes)-n:])
-        minsize=min(sizes)
         for idx, box in tqdm(enumerate(bboxes)):
                 if bscores[idx] >= 0.35:
                     y_min = int(box[0] * im_height)
@@ -286,18 +275,6 @@ def flatten(_list_):
 
 
 
-def axis_coords_sort(array, axis):
-    tags=[i for i in range(len(array))]
-    try:
-        array=array.tolist()
-    except AttributeError:
-        pass
-    adict={coord[axis]+10**(-len(str(len(array))))*tags[i]:coord[1-axis] for i, coord in enumerate(array)}
-    keys=np.array(list(adict.keys()))
-    keys.sort()
-    newarray=np.array([np.array([int(key), adict[key]]) for key in keys])
-    return newarray
-
 
 def image_compare_dist(centers_lists, n, scale=1):
     centers_lists=centers_lists.copy()
@@ -308,7 +285,6 @@ def image_compare_dist(centers_lists, n, scale=1):
             cl1=centers
             cl2=centers_lists[i+1]
         except IndexError:
-            #print([table.shape for table in disttable])
             disttable=np.array(disttable)
             print('disttable ok')
             indextable=np.array(indextable)
@@ -340,7 +316,6 @@ def image_compare_vect(center_list_1, center_list_2, neighbor_indexes):
 
 
 def image_compare(images, n, modelpath, shape, mass=1, framerate=25, radius=60):
-    diameter=2*radius
     n=n
     vectortable=np.array([np.zeros((n,2))])
     images=images
@@ -360,32 +335,12 @@ def image_compare(images, n, modelpath, shape, mass=1, framerate=25, radius=60):
              positions=[pallet.positions for pallet in pallets] 
              scatter(positions, limits=(im_width,im_height), dirname='Pallets', track=True)
              avgpallets=datasave(pallets)
-             #images_to_video('Frames', 'animation')
              return images, pallets, avgimages, avgpallets, indexes 
         vectors=image_compare_vect(cl1,cl2,indexes[i])
         vectortable=vectortable.tolist()
         vectortable.append(vectors)
         vectortable=np.array(vectortable)
 
-def images_to_video(image_folder,dirname,vidname='animation', fps=25):
-    image_files=image_imports(image_folder, None, start=0, rescale=False)
-    #images.sort() 
-    output_video_path=f'{dirname}'
-    try:
-        os.mkdir(output_video_path)
-        print(f"Directory '{output_video_path}' created successfully.")
-    except FileExistsError:
-        print(f"Directory '{output_video_path}' already exists.")
-    except PermissionError:
-        print(f"Permission denied: Unable to create '{output_video_path}'.")
-    if len(images) == 0:
-        print("No image find in folder.")
-        return
-    clip = moviepy.video.io.ImageSequenceClip.ImageSequenceClip(image_files, fps=fps)
-    clip.write_videofile(f'{vidname}.mp4')
-    os.rename(f'{vidname}.mp4',f'{output_video_path}/{vidname}.mp4' )
-    print(f"Video successfully created  : {vidname}")
-    return output_video_path
 
 def datasave(datacollection):
     datacollection=datacollection[:]
@@ -420,45 +375,14 @@ def datasave(datacollection):
     dataset.to_csv(f'saved_data/{file}')
     return dataset
         
-def setup():
-    path=input('Imput the path to the folder with the images.')
-    path=path+'/*'
-    if os.path.isdir(path)!=True:
-        print('Invalid path')
-        exit()
-    shape=input('Which shape do you want to track (use _ instead of spaces)')
-    modelpath=f'Tensorflow/workspace/training_demo_{shape}/exported_models/my_model/saved_model'
-    if os.path.isdir(modelpath)!=True:
-        print('Shape not handeled')
-        exit()
-    n=abs(int(input('How many pallets are there?')))
-    radius=abs(int(input('What is the radius of the pallets (in pixels)?')))
-    return path, modelpath, n, radius
 
-#path, modelpath, n, radius = setup()
+
 path=("24_mm_25_particles/24_mm_25_particles/*")
-testpath=("24_mm_25_particles/24_mm_25_particles/*")
 templatepath=("Images/template.jpg")
-#♣n=int(input('how many pallets are there?'))
 n=25
 radius=60
-start=t.monotonic()
 images=image_imports(path, templatepath, rescale=False, docrop=True)
-#shape=input('Which shape do you want to track (use _ instead of spaces)')
 shape='circle'
 modelpath=f'Tensorflow/workspace/training_demo_{shape}/exported-models/my_model/saved_model'
 tables=image_compare(images,n, modelpath,shape, radius=radius)
-#result_list, im_height, im_width=pallet_check(images, modelpath,shape)
-#coordslist=(palletcoords(result_list, im_height, im_width, n))
-#scatter(coordslist, limits=(im_height,im_width))
-#dia=60
-#merged=merge2(coordslist, dia, n)
-#print(merged[1], [len(image) for image in merged] )
-#scatter(merged, limits=(im_height,im_width), dirname='Merged')
-end=t.monotonic()
-#disttable, vecttable=tables
-#print(len(disttable), len(vecttable), end-start)
-#scatterpath, plots= scatter(origins, scale=scale)
-##plt.show()
-##plots=[scatter(centers)]
-##plt.show()
+
