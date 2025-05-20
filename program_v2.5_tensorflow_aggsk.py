@@ -337,7 +337,7 @@ def image_compare(images, n, modelpath, shape, mass=1, framerate=25):
              avgpallets=datasave(pallets)
              fullpallets=palletsave(pallets)
              print('Done')
-             return images, pallets, avgimages, avgpallets, indexes 
+             return images, pallets, avgimages, avgpallets, fullpallets, indexes 
         vectors=image_compare_vect(cl1,cl2,indexes[i])
         vectortable=vectortable.tolist()
         vectortable.append(vectors)
@@ -378,6 +378,7 @@ def datasave(datacollection):
     return dataset
 def palletsave(pallets):
     labels=['position','vector', 'distances', 'speed', 'energy','momentum']
+    sets=[]
     for i, pallet in enumerate(pallets):
         file='pallet_{i}'
         positions=pallet.positions[:]
@@ -385,13 +386,14 @@ def palletsave(pallets):
         vectors=pallet.vectors[:]
         speed=pallet.speeds[:]
         energy=pallet.kinetic_energies[:]
-        momentum=pallet.momentum[:]
+        momentum=pallet.momentums[:]
         fulldata=np.array([positions[:], vectors[:], distances[:], speed[:], energy[:], momentum[:]])
         dataset=pd.DataFrame()
         for j, data in enumerate(fulldata):
             dataset[f'{labels[j]}']=fulldata[i]
         dataset.to_csv(f'saved_data/pallets/{file}')
-    return i
+        sets.append(dataset)
+    return sets
         
 path=("24_mm_25_particles/24_mm_25_particles/*")
 templatepath=("Images/template.jpg")
