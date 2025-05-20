@@ -380,7 +380,7 @@ def palletsave(pallets):
     labels=['x','y','delta_x','delta_y', 'distances', 'speed', 'energy','momentum']
     sets=[]
     for i, pallet in enumerate(pallets):
-        file='pallet_{i}'
+        file=f'pallet_{i}.csv'
         positions=pallet.positions[:]
         distances=pallet.distances[:]
         vectors=pallet.vectors[:]
@@ -393,9 +393,10 @@ def palletsave(pallets):
             dataset[f'{labels[j]}']=fulldata[j]
         dataset.to_csv(f'saved_data/pallets/{file}')
         sets.append(dataset)
+    print(sets)
     return sets
         
-path=("24_mm_25_particles/24_mm_25_particles/*")
+path=("Images/test/*")
 templatepath=("Images/template.jpg")
 n=25
 images=image_imports(path, templatepath, rescale=False, docrop=True)
