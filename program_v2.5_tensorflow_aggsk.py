@@ -195,7 +195,7 @@ def palletcoords(result_table, im_height, im_width, n):
 
 
 
-def aggmerge(coords_table, n, r):
+def aggmerge(coords_table, n):
     coords_table=coords_table.copy()
     centers_lists=[]
     for coordlist in tqdm(coords_table, desc='Merging excess points'):
@@ -315,12 +315,12 @@ def image_compare_vect(center_list_1, center_list_2, neighbor_indexes):
     return vectors
 
 
-def image_compare(images, n, modelpath, shape, mass=1, framerate=25, radius=60):
+def image_compare(images, n, modelpath, shape, mass=1, framerate=25):
     n=n
     vectortable=np.array([np.zeros((n,2))])
     images=images
     result_list, im_height, im_width=pallet_check(images, modelpath,shape)
-    centers_lists=aggmerge(palletcoords(result_list, im_height, im_width, n), n, radius)
+    centers_lists=aggmerge(palletcoords(result_list, im_height, im_width, n), n)
     disttable, indexes=image_compare_dist(centers_lists,n)
     for i, centers in tqdm(enumerate(centers_lists), desc='comparing images'):
         try:
@@ -335,6 +335,7 @@ def image_compare(images, n, modelpath, shape, mass=1, framerate=25, radius=60):
              positions=[pallet.positions for pallet in pallets] 
              scatter(positions, limits=(im_width,im_height), dirname='Pallets', track=True)
              avgpallets=datasave(pallets)
+             fullpallets=palletsave(pallets)
              return images, pallets, avgimages, avgpallets, indexes 
         vectors=image_compare_vect(cl1,cl2,indexes[i])
         vectortable=vectortable.tolist()
@@ -346,7 +347,7 @@ def datasave(datacollection):
     datacollection=datacollection[:]
     directory_name='saved_data'
     try:
-        os.mkdir(directory_name)
+        os.makedirs(f'{directory_name}/pallets')
         print(f"Directory '{directory_name}' created successfully.")
     except FileExistsError:
         print(f"Directory '{directory_name}' already exists.")
@@ -374,15 +375,28 @@ def datasave(datacollection):
         dataset[f'{labels[i]}']=fulldata[i]
     dataset.to_csv(f'saved_data/{file}')
     return dataset
+def palletsave(pallets):
+    labels=['position','vector', 'distances', 'speed', 'energy','momentum']
+    for i, pallet in enumerate(pallets):
+        file='pallet_{i}'
+        positions=pallet.positions[:]
+        distances=pallet.distances[:]
+        vectors=pallet.vectors[:]
+        speed=pallet.speed[:]
+        energy=pallet.kinetic_energies[:]
+        momentum=pallet.momentum[:]
+        fulldata=np.array([positions[:], vectors[:], distances[:], speed[:], energy[:], momentum[:]])
+        dataset=pd.DataFrame()
+        for j, data in enumerate(fulldata):
+            dataset[f'{labels[j]}']=fulldata[i]
+        dataset.to_csv(f'saved_data/pallets/{file}')
+    return i
         
-
-
 path=("24_mm_25_particles/24_mm_25_particles/*")
 templatepath=("Images/template.jpg")
 n=25
-radius=60
 images=image_imports(path, templatepath, rescale=False, docrop=True)
 shape='circle'
 modelpath=f'Tensorflow/workspace/training_demo_{shape}/exported-models/my_model/saved_model'
-tables=image_compare(images,n, modelpath,shape, radius=radius)
+tables=image_compare(images,n, modelpath,shape)
 
