@@ -212,7 +212,7 @@ def aggmerge(coords_table, n, r):
     for coordlist in tqdm(coords_table, desc='Merging excess points'):
         if len(coordlist)>n:
             tags=[i for i in range(len(coordlist))]
-            agg = AgglomerativeClustering(n_clusters=None, compute_full_tree=True, distance_threshold=r)
+            agg = AgglomerativeClustering(n_clusters=n)
             labels = agg.fit_predict(coordlist)
             data={labels[i]+10**(-len(str(len(coordlist))))*tags[i]:coords for i, coords in enumerate(coordlist)}
             groups=[]
@@ -231,7 +231,8 @@ def aggmerge(coords_table, n, r):
                     center=np.array([np.mean(groupx), np.mean(groupy)])
                     centers.append(center)
             centers_lists.append(centers)
-        centers_lists.append(coordlist)
+        else:
+            centers_lists.append(coordlist)
     return centers_lists
 
 def scatter(coords_table, dirname='Frames', limits=(350,350), track=False):
@@ -257,7 +258,7 @@ def scatter(coords_table, dirname='Frames', limits=(350,350), track=False):
         plt.ylim(0,height)
         img_plot = plt.scatter(x,y,s=2, marker ='+')
         if track:
-            plt.plot(x,y, linewidth=1.5)
+            plt.plot(x,y,':',linewidth=1.5)
         plots.append(img_plot)
         figname='fig'+str(i)
         fig.savefig(f"{directory_name}/{figname}.png")
@@ -298,7 +299,7 @@ def axis_coords_sort(array, axis):
     return newarray
 
 
-def image_compare_dist(centers_lists, n, scale=11):
+def image_compare_dist(centers_lists, n, scale=1):
     centers_lists=centers_lists.copy()
     indextable=[np.array([i for i in range(n)])]
     disttable=[np.zeros(n)]
@@ -307,6 +308,7 @@ def image_compare_dist(centers_lists, n, scale=11):
             cl1=centers
             cl2=centers_lists[i+1]
         except IndexError:
+            #print([table.shape for table in disttable])
             disttable=np.array(disttable)
             print('disttable ok')
             indextable=np.array(indextable)
@@ -358,7 +360,6 @@ def image_compare(images, n, modelpath, shape, mass=1, framerate=25, radius=60):
              positions=[pallet.positions for pallet in pallets] 
              scatter(positions, limits=(im_width,im_height), dirname='Pallets', track=True)
              avgpallets=datasave(pallets)
-             print(positions)
              #images_to_video('Frames', 'animation')
              return images, pallets, avgimages, avgpallets, indexes 
         vectors=image_compare_vect(cl1,cl2,indexes[i])
@@ -436,13 +437,13 @@ def setup():
 
 #path, modelpath, n, radius = setup()
 path=("24_mm_25_particles/24_mm_25_particles/*")
-testpath=("Images/test/*")
+testpath=("24_mm_25_particles/24_mm_25_particles/*")
 templatepath=("Images/template.jpg")
 #♣n=int(input('how many pallets are there?'))
 n=25
 radius=60
 start=t.monotonic()
-images=image_imports(testpath, templatepath, rescale=False, docrop=True)
+images=image_imports(path, templatepath, rescale=False, docrop=True)
 #shape=input('Which shape do you want to track (use _ instead of spaces)')
 shape='circle'
 modelpath=f'Tensorflow/workspace/training_demo_{shape}/exported-models/my_model/saved_model'
