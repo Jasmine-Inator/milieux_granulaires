@@ -390,7 +390,7 @@ def palletsave(pallets):
         fulldata=np.array([[coord[0] for coord in positions],[coord[1] for coord in positions], [coord[0] for coord in vectors],[coord[1] for coord in vectors] ,distances[:], speed[:], energy[:], momentum[:]])
         dataset=pd.DataFrame()
         for j, data in enumerate(fulldata):
-            dataset[f'{labels[j]}']=fulldata[i]
+            dataset[f'{labels[j]}']=fulldata[j]
         dataset.to_csv(f'saved_data/pallets/{file}')
         sets.append(dataset)
     return sets
