@@ -377,7 +377,7 @@ def datasave(datacollection):
     dataset.to_csv(f'saved_data/{file}')
     return dataset
 def palletsave(pallets):
-    labels=['position','vector', 'distances', 'speed', 'energy','momentum']
+    labels=['x','y','delta_x','delta_y', 'distances', 'speed', 'energy','momentum']
     sets=[]
     for i, pallet in enumerate(pallets):
         file='pallet_{i}'
@@ -387,7 +387,7 @@ def palletsave(pallets):
         speed=pallet.speeds[:]
         energy=pallet.kinetic_energies[:]
         momentum=pallet.momentums[:]
-        fulldata=np.array([positions[:], vectors[:], distances[:], speed[:], energy[:], momentum[:]])
+        fulldata=np.array([[coord[0] for coord in positions],[coord[1] for coord in positions], [coord[0] for coord in vectors],[coord[1] for coord in vectors] ,distances[:], speed[:], energy[:], momentum[:]])
         dataset=pd.DataFrame()
         for j, data in enumerate(fulldata):
             dataset[f'{labels[j]}']=fulldata[i]
