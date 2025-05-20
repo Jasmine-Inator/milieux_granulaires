@@ -336,6 +336,7 @@ def image_compare(images, n, modelpath, shape, mass=1, framerate=25):
              scatter(positions, limits=(im_width,im_height), dirname='Pallets', track=True)
              avgpallets=datasave(pallets)
              fullpallets=palletsave(pallets)
+             print('Done')
              return images, pallets, avgimages, avgpallets, indexes 
         vectors=image_compare_vect(cl1,cl2,indexes[i])
         vectortable=vectortable.tolist()
@@ -382,7 +383,7 @@ def palletsave(pallets):
         positions=pallet.positions[:]
         distances=pallet.distances[:]
         vectors=pallet.vectors[:]
-        speed=pallet.speed[:]
+        speed=pallet.speeds[:]
         energy=pallet.kinetic_energies[:]
         momentum=pallet.momentum[:]
         fulldata=np.array([positions[:], vectors[:], distances[:], speed[:], energy[:], momentum[:]])
